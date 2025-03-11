@@ -16,6 +16,7 @@ export const abbrMap = {
   c: 'color',
   'col-gap': 'column-gap',
   cols: 'columns',
+  cursor: 'cursor',
   d: 'display',
   family: 'font-family',
   fs: 'font-size',
@@ -90,3 +91,22 @@ export const abbrMap = {
   select: 'user-select',
   z: 'z-index',
 };
+
+export const breakpoints: {
+  dict: Record<string, string>;
+} = {
+  dict: {},
+};
+
+export const mainStyle = document.createElement('style');
+mainStyle.id = 'styledwind';
+document.head.appendChild(mainStyle);
+interface IInsertedRules {
+  baseRuleIndex: number;
+  stateRuleIndex: Record<string, number>;
+  screenRuleIndex: number[];
+  baseProps: Set<string>;
+}
+
+export const styleSheet = mainStyle.sheet as CSSStyleSheet;
+export const insertedRulesMap = new Map<string, IInsertedRules>();
