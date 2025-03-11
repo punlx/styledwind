@@ -72,7 +72,7 @@ function separateText(classBlock: string) {
 }
 
 function separateStyleAndProperties(abbr: string): [string, string] {
-  const match = /^(\w+)\[(.*)\]$/.exec(abbr.trim());
+  const match = /^([\w-]+)\[(.*)\]$/.exec(abbr.trim());
   if (!match) {
     return ['', ''];
   }
@@ -80,21 +80,24 @@ function separateStyleAndProperties(abbr: string): [string, string] {
   return [match[1], match[2]];
 }
 
+function convertCSSVariable(value: string): string {
+  return value.includes('--') ? value.replace(/(--[\w-]+)/g, 'var($1)') : value;
+}
+
 function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   if (openParenIdx === -1) {
     // base
     const [styleAbbr, propValue] = separateStyleAndProperties(abbrLine);
-    console.log('styled.ts:88 |styleAbbr| : ', styleAbbr);
-    console.log('styled.ts:89 |propValue| : ', propValue);
     if (!styleAbbr) return;
     //@ts-ignore
     const cssProp = abbrMap[styleAbbr];
     if (!cssProp) {
       throw `Property abbr "${styleAbbr}" is not defined in abbrMap.`;
     }
-    const finalVal = propValue.startsWith('--') ? `var(${propValue})` : propValue;
-    console.log('styled.ts:95 |finalVal| : ', finalVal);
+
+    const finalVal = convertCSSVariable(propValue);
+
     styleDef.base[cssProp] = finalVal;
     return;
   }
@@ -170,7 +173,7 @@ function processOneClass(className: string, abbrStyle: string): string {
   for (let i = 0; i < lines.length; ++i) {
     parseSingleAbbr(lines[i], styleDef);
   }
-  console.log('styled.ts:170 |styleDef| : ', styleDef);
+
   const uniqueId = generateClassId(className + abbrStyle);
   const displayName = className + '_' + uniqueId;
 
@@ -188,8 +191,6 @@ function processOneClass(className: string, abbrStyle: string): string {
   // states
   const stateRuleIndex: Record<string, number> = {};
   for (const st in styleDef.states) {
-    console.log('styled.ts:187 |st| : ', st);
-
     const idx = styleSheet.insertRule(`.${displayName}:${st}{}`, styleSheet.cssRules.length);
     const stRule = styleSheet.cssRules[idx] as CSSStyleRule;
     const propsObj = styleDef.states[st];
