@@ -16,6 +16,7 @@ export const abbrMap = {
   c: 'color',
   'col-gap': 'column-gap',
   cols: 'columns',
+  content: 'content',
   cursor: 'cursor',
   'container-type': 'container-type',
   container: 'container',

@@ -27,6 +27,7 @@ export type StyledResult<T extends Record<string, AbbrKey | AbbrKey[] | Readonly
 };
 
 // ------ โค้ดภายใน (IStyleDefinition, insertedRulesMap, parse) -------
+type PseudoKey = 'before' | 'after';
 
 interface IStyleDefinition {
   base: Record<string, string>;
@@ -39,6 +40,7 @@ interface IStyleDefinition {
     query: string;
     props: Record<string, string>;
   }>;
+  pseudos: Partial<Record<PseudoKey, Record<string, string>>>;
 }
 
 export function separateClass(styleText: TemplateStringsArray) {
@@ -144,6 +146,41 @@ export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition
     props: containerProps,
   });
 }
+export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefinition) {
+  const openParenIdx = abbrLine.indexOf('(');
+  const funcName = abbrLine.slice(0, openParenIdx).trim() as PseudoKey; // 'before' หรือ 'after'
+  const insideParen = abbrLine.slice(openParenIdx + 1, -1).trim();
+
+  // แยก props ใน pseudo-element เช่น content[''] bg[red] c[white]
+  // ใช้ regex แยกจาก space ที่อยู่ภายนอก []
+  const propsInPseudo = insideParen.split(/ (?=[^\[\]]*(?:\[|$))/);
+
+  // เตรียมเก็บ property ไว้ใน obj
+  const result: Record<string, string> = {};
+
+  for (const propLine of propsInPseudo) {
+    const [stAbbr, stVal] = separateStyleAndProperties(propLine);
+    if (!stAbbr) continue; // เผื่อเป็นช่องว่างหรือ parse ไม่ออก
+
+    // ตรวจว่าใน abbrMap มีหรือไม่
+    const stProp = abbrMap[stAbbr as keyof typeof abbrMap];
+    if (!stProp) {
+      throw `Property abbr "${stAbbr}" is not defined in abbrMap.`;
+    }
+
+    // handle content[] case:
+    // ถ้าผู้ใช้เขียน content[] (ไม่มีอะไรเลยใน bracket) => stVal จะเป็น '' => throw error
+    if (stAbbr === 'content' && stVal === '') {
+      throw `Pseudo-element "${funcName}" - "content[]" must not be empty. Use '' if you want an empty string.`;
+    }
+
+    const finalVal = convertCSSVariable(stVal);
+    result[stProp] = finalVal;
+  }
+
+  // เก็บ result ลงใน styleDef.pseudos.before หรือ .after
+  styleDef.pseudos[funcName] = result;
+}
 
 export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
@@ -153,10 +190,13 @@ export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   }
 
   const funcName = abbrLine.slice(0, openParenIdx).trim();
+
   if (funcName === 'screen') {
     parseScreenStyle(abbrLine, styleDef);
   } else if (funcName === 'container') {
     parseContainerStyle(abbrLine, styleDef);
+  } else if (funcName === 'before' || funcName === 'after') {
+    parsePseudoElementStyle(abbrLine, styleDef);
   } else {
     parseStateStyle(abbrLine, styleDef);
   }
@@ -268,7 +308,8 @@ export function parseClassDefinition(className: string, abbrStyle: string): ISty
     base: {},
     states: {},
     screens: [],
-    containers: [], // <= เพิ่มตรงนี้
+    containers: [],
+    pseudos: {}, // <= ใส่ไว้เพื่อรองรับ before/after
   };
 
   const lines = abbrStyle
@@ -279,6 +320,7 @@ export function parseClassDefinition(className: string, abbrStyle: string): ISty
   for (let i = 0; i < lines.length; i++) {
     parseSingleAbbr(lines[i], styleDef);
   }
+
   return styleDef;
 }
 
@@ -286,7 +328,6 @@ export function insertCSSRules(displayName: string, styleDef: IStyleDefinition) 
   // Base rule
   const baseRuleIndex = styleSheet.insertRule(`.${displayName}{}`, styleSheet.cssRules.length);
   const baseRule = styleSheet.cssRules[baseRuleIndex] as CSSStyleRule;
-
   for (const prop in styleDef.base) {
     baseRule.style.setProperty(prop, styleDef.base[prop]);
   }
@@ -296,7 +337,6 @@ export function insertCSSRules(displayName: string, styleDef: IStyleDefinition) 
     const idx = styleSheet.insertRule(`.${displayName}:${state}{}`, styleSheet.cssRules.length);
     const stateRule = styleSheet.cssRules[idx] as CSSStyleRule;
     const propsObj = styleDef.states[state];
-
     for (const prop in propsObj) {
       stateRule.style.setProperty(prop, propsObj[prop]);
     }
@@ -311,7 +351,6 @@ export function insertCSSRules(displayName: string, styleDef: IStyleDefinition) 
     const mediaRule = styleSheet.cssRules[mediaIdx] as CSSMediaRule;
     const insideIdx = mediaRule.insertRule(`.${displayName}{}`, 0);
     const insideRule = mediaRule.cssRules[insideIdx] as CSSStyleRule;
-
     for (const prop in screen.props) {
       insideRule.style.setProperty(prop, screen.props[prop]);
     }
@@ -319,18 +358,31 @@ export function insertCSSRules(displayName: string, styleDef: IStyleDefinition) 
 
   // Container (Container Queries)
   for (const container of styleDef.containers) {
-    // ส่วนนี้ใช้ CSSContainerRule หรือ CSSGroupingRule (ขึ้นกับ Browser/TypeScript)
     const containerIdx = styleSheet.insertRule(
       `@container ${container.query} {}`,
       styleSheet.cssRules.length
     );
     const containerRule = styleSheet.cssRules[containerIdx] as CSSGroupingRule;
-    console.log('helpers.ts:326 |displayName| : ', displayName);
     const insideIdx = containerRule.insertRule(`.${displayName}{}`, 0);
     const insideRule = containerRule.cssRules[insideIdx] as CSSStyleRule;
-
     for (const prop in container.props) {
       insideRule.style.setProperty(prop, container.props[prop]);
+    }
+  }
+
+  // Pseudo-elements (before/after)
+  if (styleDef.pseudos.before) {
+    const idx = styleSheet.insertRule(`.${displayName}::before {}`, styleSheet.cssRules.length);
+    const beforeRule = styleSheet.cssRules[idx] as CSSStyleRule;
+    for (const prop in styleDef.pseudos.before) {
+      beforeRule.style.setProperty(prop, styleDef.pseudos.before[prop]);
+    }
+  }
+  if (styleDef.pseudos.after) {
+    const idx = styleSheet.insertRule(`.${displayName}::after {}`, styleSheet.cssRules.length);
+    const afterRule = styleSheet.cssRules[idx] as CSSStyleRule;
+    for (const prop in styleDef.pseudos.after) {
+      afterRule.style.setProperty(prop, styleDef.pseudos.after[prop]);
     }
   }
 }
