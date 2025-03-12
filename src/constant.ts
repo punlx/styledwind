@@ -25,7 +25,7 @@ export const abbrMap = {
   'row-gap': 'row-gap',
   cols: 'columns',
   content: 'content',
-  cur: 'cursor',
+  curs: 'cursor',
   'contnr-type': 'container-type',
   contnr: 'container',
   d: 'display',
