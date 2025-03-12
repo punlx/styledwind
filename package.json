@@ -1,6 +1,6 @@
 {
   "name": "styledwindjs",
-  "version": "0.0.1-beta-11",
+  "version": "0.0.1-beta-39",
   "description": "StyledWind is a lightweight and efficient CSS-in-JS framework that brings utility-first styling to JavaScript and TypeScript projects. Inspired by Tailwind CSS and Styled-Components, it allows you to write styles using a concise abbreviation-based syntax while dynamically updating styles at runtime. Perfect for modern web applications that need fast and flexible styling solutions.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,10 +10,17 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/punlx/styledwind"
+  },
   "keywords": [
     "typescript",
     "library"
   ],
   "author": "punl.x",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.25.1"
+  }
 }
