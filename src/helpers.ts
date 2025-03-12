@@ -35,6 +35,10 @@ interface IStyleDefinition {
     query: string;
     props: Record<string, string>;
   }>;
+  containers: Array<{
+    query: string;
+    props: Record<string, string>;
+  }>;
 }
 
 export function separateClass(styleText: TemplateStringsArray) {
@@ -70,6 +74,77 @@ export function convertCSSVariable(value: string): string {
   return value.includes('--') ? value.replace(/(--[\w-]+)/g, 'var($1)') : value;
 }
 
+export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition) {
+  const openParenIdx = abbrLine.indexOf('(');
+  let insideParen = abbrLine.slice(openParenIdx + 1, -1).trim();
+
+  // ค้นหาจุด ',' เพื่อแยกส่วน query และส่วน props
+  const commaIndex = insideParen.indexOf(',');
+  if (commaIndex === -1) {
+    throw `"container" syntax must have something like: container(max-w[600px], bg[red])`;
+  }
+
+  let containerPart = insideParen.slice(0, commaIndex).trim();
+  const propsPart = insideParen.slice(commaIndex + 1).trim();
+
+  // ถ้าไม่ได้เริ่มด้วย "min" หรือ "max" ให้ถือว่าเป็นชื่อ breakpoint (เช่น sm, md, lg)
+  // แล้ว map ผ่าน breakpoints.dict เหมือน parseScreenStyle
+  if (!(containerPart.startsWith('min') || containerPart.startsWith('max'))) {
+    const [bp] = containerPart.split(', ');
+    console.log('helpers.ts:94 |bp| : ', bp);
+    console.log('helpers.ts:95 |breakpoints| : ', breakpoints);
+    if (!breakpoints.dict[bp]) {
+      throw `"container" needs a valid abbr or breakpoint. Found ${bp}`;
+    }
+    containerPart = containerPart.replace(bp, breakpoints.dict[bp]);
+  }
+
+  // ตอนนี้ containerPart ควรอยู่ในรูปเช่น "max-w[600px]" หรือ "min-w[900px]"
+  const bracketOpen = containerPart.indexOf('[');
+  const bracketClose = containerPart.indexOf(']');
+  if (bracketOpen === -1 || bracketClose === -1) {
+    throw `"container" must contain something like min-w[600px]. Got ${containerPart}`;
+  }
+
+  const containerAbbr = containerPart.slice(0, bracketOpen).trim();
+  const containerValue = containerPart.slice(bracketOpen + 1, bracketClose).trim();
+
+  // ต้องเป็น "max-w" หรือ "min-w" ใน abbrMap
+  const containerProp = abbrMap[containerAbbr as keyof typeof abbrMap];
+  if (!containerProp || (containerProp !== 'min-width' && containerProp !== 'max-width')) {
+    throw `"container" needs "min-w"/"max-w" but got "${containerAbbr}"`;
+  }
+
+  // สร้าง query สำหรับ container
+  const containerQuery = `(${containerProp}:${containerValue})`;
+
+  // แตก props (เช่น "bg[green] c[yellow]") ด้วย regex แยกจาก space นอก bracket
+  const containerPropsList = propsPart.split(/ (?=[^\[\]]*(?:\[|$))/);
+  const containerProps: Record<string, string> = {};
+
+  for (let i = 0; i < containerPropsList.length; i++) {
+    const p = containerPropsList[i];
+    const [stAbbr, stVal] = separateStyleAndProperties(p);
+    if (!stAbbr) continue;
+
+    const stProp = abbrMap[stAbbr as keyof typeof abbrMap];
+    if (!stProp) {
+      throw `Property abbr "${stAbbr}" is not defined in abbrMap.`;
+    }
+
+    const finalVal = convertCSSVariable(stVal);
+    containerProps[stProp] = finalVal;
+  }
+
+  console.log('helpers.ts:137 |styleDef| : ', styleDef);
+
+  // บันทึกลง styleDef.containers
+  styleDef.containers.push({
+    query: containerQuery,
+    props: containerProps,
+  });
+}
+
 export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   if (openParenIdx === -1) {
@@ -80,6 +155,8 @@ export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   const funcName = abbrLine.slice(0, openParenIdx).trim();
   if (funcName === 'screen') {
     parseScreenStyle(abbrLine, styleDef);
+  } else if (funcName === 'container') {
+    parseContainerStyle(abbrLine, styleDef);
   } else {
     parseStateStyle(abbrLine, styleDef);
   }
@@ -187,7 +264,13 @@ export function processOneClass(className: string, abbrStyle: string): string {
 }
 
 export function parseClassDefinition(className: string, abbrStyle: string): IStyleDefinition {
-  const styleDef: IStyleDefinition = { base: {}, states: {}, screens: [] };
+  const styleDef: IStyleDefinition = {
+    base: {},
+    states: {},
+    screens: [],
+    containers: [], // <= เพิ่มตรงนี้
+  };
+
   const lines = abbrStyle
     .split('\n')
     .map((l) => l.trim())
@@ -231,6 +314,23 @@ export function insertCSSRules(displayName: string, styleDef: IStyleDefinition) 
 
     for (const prop in screen.props) {
       insideRule.style.setProperty(prop, screen.props[prop]);
+    }
+  }
+
+  // Container (Container Queries)
+  for (const container of styleDef.containers) {
+    // ส่วนนี้ใช้ CSSContainerRule หรือ CSSGroupingRule (ขึ้นกับ Browser/TypeScript)
+    const containerIdx = styleSheet.insertRule(
+      `@container ${container.query} {}`,
+      styleSheet.cssRules.length
+    );
+    const containerRule = styleSheet.cssRules[containerIdx] as CSSGroupingRule;
+    console.log('helpers.ts:326 |displayName| : ', displayName);
+    const insideIdx = containerRule.insertRule(`.${displayName}{}`, 0);
+    const insideRule = containerRule.cssRules[insideIdx] as CSSStyleRule;
+
+    for (const prop in container.props) {
+      insideRule.style.setProperty(prop, container.props[prop]);
     }
   }
 }

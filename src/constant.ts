@@ -17,6 +17,8 @@ export const abbrMap = {
   'col-gap': 'column-gap',
   cols: 'columns',
   cursor: 'cursor',
+  'container-type': 'container-type',
+  container: 'container',
   d: 'display',
   family: 'font-family',
   fs: 'font-size',

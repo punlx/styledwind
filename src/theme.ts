@@ -4,6 +4,7 @@ import { generateCSS, injectCSS, setTheme } from './helpers';
 // `theme.palette()` ใช้ฟังก์ชันที่สร้างไว้
 export const theme = {
   palette: (colors: string[][]) => {
+    console.log('theme.ts:7 |123| : ', 123);
     const modes: string[] = colors[0]; // ['dark', 'light', 'dim']
 
     injectCSS(generateCSS(colors)); // Inject CSS ทันที
@@ -25,3 +26,5 @@ export const theme = {
     breakpoints.dict = breakpointList;
   },
 };
+
+console.log('theme.ts:29 |breakpoints| : ', breakpoints);
