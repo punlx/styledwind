@@ -25,48 +25,54 @@ function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
   // 1) Base
   const baseObj = styleDef.base;
   if (Object.keys(baseObj).length > 0) {
-    const baseProps = Object.entries(baseObj)
-      .map(([prop, val]) => `${prop}:${val};`)
-      .join('');
+    let baseProps = '';
+    for (const prop in baseObj) {
+      baseProps += `${prop}:${baseObj[prop]};`;
+    }
     cssText += `.${displayName}{${baseProps}}`;
   }
 
   // 2) States (hover, focus, etc.)
   for (const state in styleDef.states) {
     const obj = styleDef.states[state];
-    const props = Object.entries(obj)
-      .map(([p, v]) => `${p}:${v};`)
-      .join('');
+    let props = '';
+    for (const p in obj) {
+      props += `${p}:${obj[p]};`;
+    }
     cssText += `.${displayName}:${state}{${props}}`;
   }
 
   // 3) Screens
   for (const scr of styleDef.screens) {
-    const props = Object.entries(scr.props)
-      .map(([p, v]) => `${p}:${v};`)
-      .join('');
+    let props = '';
+    for (const p in scr.props) {
+      props += `${p}:${scr.props[p]};`;
+    }
     cssText += `@media only screen and ${scr.query}{.${displayName}{${props}}}`;
   }
 
   // 4) Container
   for (const ctnr of styleDef.containers) {
-    const props = Object.entries(ctnr.props)
-      .map(([p, v]) => `${p}:${v};`)
-      .join('');
+    let props = '';
+    for (const p in ctnr.props) {
+      props += `${p}:${ctnr.props[p]};`;
+    }
     cssText += `@container ${ctnr.query}{.${displayName}{${props}}}`;
   }
 
   // 5) Pseudos (before/after)
   if (styleDef.pseudos.before) {
-    const beforeProps = Object.entries(styleDef.pseudos.before)
-      .map(([p, v]) => `${p}:${v};`)
-      .join('');
+    let beforeProps = '';
+    for (const p in styleDef.pseudos.before) {
+      beforeProps += `${p}:${styleDef.pseudos.before[p]};`;
+    }
     cssText += `.${displayName}::before{${beforeProps}}`;
   }
   if (styleDef.pseudos.after) {
-    const afterProps = Object.entries(styleDef.pseudos.after)
-      .map(([p, v]) => `${p}:${v};`)
-      .join('');
+    let afterProps = '';
+    for (const p in styleDef.pseudos.after) {
+      afterProps += `${p}:${styleDef.pseudos.after[p]};`;
+    }
     cssText += `.${displayName}::after{${afterProps}}`;
   }
 

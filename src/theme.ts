@@ -7,10 +7,10 @@ function generatePaletteCSS(colors: string[][]): string {
   let cssResult = '';
 
   // สร้างสตริง .dark{ --xxx }, .light{ --xxx }
-  for (let i = 0; i < modes.length; i++) {
+  for (let i = 0; i < modes.length; ++i) {
     const modeName = modes[i];
     let classBody = '';
-    for (let j = 0; j < colorRows.length; j++) {
+    for (let j = 0; j < colorRows.length; ++j) {
       const row = colorRows[j];
       const colorName = row[0];
       const colorValue = row[i + 1];
