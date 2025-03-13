@@ -60,7 +60,8 @@ export const theme = {
     // เช่น (options) เช็ค localStorage ว่ามีธีมเก่าไหม
     const modes = colors[0];
     const savedTheme = localStorage.getItem('styledwind-theme');
-    if (savedTheme && modes.includes(savedTheme)) {
+
+    if (savedTheme && modes.indexOf(savedTheme) !== -1) {
       setTheme(savedTheme, modes);
     } else {
       // ค่า default
