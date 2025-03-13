@@ -1,3 +1,8 @@
+// constant.ts
+
+/**********************************************
+ * 1) คำย่อ -> ชื่อ CSS property
+ **********************************************/
 export const abbrMap = {
   ac: 'align-content',
   ai: 'align-items',
@@ -26,15 +31,15 @@ export const abbrMap = {
   cols: 'columns',
   content: 'content',
   curs: 'cursor',
-  'contnr-type': 'container-type',
-  contnr: 'container',
+  'ctnr-type': 'container-type',
+  ctnr: 'container',
   d: 'display',
   family: 'font-family',
   fs: 'font-size',
   fw: 'font-weight',
   fx: 'flex',
   basis: 'flex-basis',
-  wrap: 'wrap',
+  wrap: 'flex-wrap',
   direc: 'flex-direction',
   flow: 'flex-flow',
   grow: 'flex-grow',
@@ -104,23 +109,41 @@ export const abbrMap = {
   tf: 'transform',
   sel: 'user-select',
   z: 'z-index',
+} as const;
+
+/**********************************************
+ * 2) Breakpoints dictionary
+ **********************************************/
+export const breakpoints = {
+  dict: {} as Record<string, string>,
 };
 
-export const breakpoints: {
-  dict: Record<string, string>;
-} = {
-  dict: {},
-};
+/**********************************************
+ * 3) ConstructedStylesheet + fallback
+ **********************************************/
+export const constructedSheet = new CSSStyleSheet();
 
-export const mainStyle = document.createElement('style');
-mainStyle.id = 'styledwind';
-document.head.appendChild(mainStyle);
-interface IInsertedRules {
-  baseRuleIndex: number;
-  stateRuleIndex: Record<string, number>;
-  screenRuleIndex: number[];
-  baseProps: Set<string>;
+let fallbackStyleElement: HTMLStyleElement | null = null;
+
+if ('adoptedStyleSheets' in Document.prototype) {
+  // ถ้ารองรับ adoptedStyleSheets
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, constructedSheet];
+} else {
+  // fallback
+  const styleEl = document.createElement('style');
+  styleEl.id = 'styledwind-construct-fallback';
+  document.head.appendChild(styleEl);
+  fallbackStyleElement = styleEl;
 }
 
-export const styleSheet = mainStyle.sheet as CSSStyleSheet;
+export { fallbackStyleElement };
+
+/**********************************************
+ * 4) แผนที่เก็บข้อมูล rule ที่ insert แล้ว
+ **********************************************/
+export interface IInsertedRules {
+  displayName: string;
+  // ใส่ข้อมูลเพิ่มเติมได้ เช่น index, props, etc.
+}
+
 export const insertedRulesMap = new Map<string, IInsertedRules>();
