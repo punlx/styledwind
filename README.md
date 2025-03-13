@@ -418,6 +418,74 @@ It will help you to know what `classes` are contained in the `variable`.
 
 ---
 
+## VSCode Extension: Styledwind Intellisense
+
+### Autocompletion & Hover Support for Styledwind `.css.ts` files
+
+⚠️ This extension works exclusively with **`.css.ts`** files.
+
+- **Property Name Suggestion**: Type a property prefix (e.g., `b`) to get suggestions like `background-color`, `border`, etc.
+- **Auto Abbreviation Conversion**: Select a full property name, and it will convert to its abbreviation (`background-color` → `bg`).
+- **Value Suggestions**: Type `[` after a property abbreviation (`bg[`), and it will suggest valid values.
+- **Theme Variable Support**: Type `--` inside brackets (`bg[--`) to see theme variables from `styledwind.theme.ts`.
+- **Hover Information**: Hover over properties, states, or class names to see the full compiled CSS.
+
+### How to Use:
+
+1. Install **Styledwind Intellisense** from the VSCode Marketplace.
+2. Open a `.css.ts` file containing `styled`.
+3. Start typing inside `{}` inside a styled block.
+4. Get instant suggestions and hover information.
+
+#### Example:
+
+```tsx
+// Input:
+export const appCss = styled<{ box: [] }>`
+  .box {
+    b
+  }
+`;
+
+// After selecting "background-color":
+export const appCss = styled<{ box: [] }>`
+  .box {
+    bg
+  }
+`;
+
+// Suggesting theme variables:
+export const appCss = styled<{ box: ['bg'] }>`
+  .box {
+    bg[--blue-100]
+  }
+`;
+```
+
+## Hover Example:
+
+```tsx
+export const appCss = styled<{ box: ['bg', 'c', 'jc'] }>`
+  .box {
+    bg[--blue-100]
+    c[white]
+    jc[center]
+  }
+`;
+```
+
+**Hovering over .box will display:**
+
+```css
+.box {
+  background-color: var(--blue-100);
+  color: white;
+  justify-content: center;
+}
+```
+
+## **Styledwind Intellisense** enhances developer productivity by making Styledwind-based CSS writing faster and more intuitive.
+
 ## Known Issues & Limitations
 
 - **SSR**: Server-Side Rendering is not fully supported.
