@@ -1,6 +1,6 @@
 // styled.ts
 
-import { parseClassDefinition, IStyleDefinition, convertCSSVariable } from './helpers';
+import { parseClassDefinition, convertCSSVariable } from './helpers';
 import { generateClassId } from './hash';
 import { insertedRulesMap, IInsertedRules } from './constant';
 import { insertCSSRules, styleDefMap, rebuildGlobalCSSDebounced } from './insertCSSRules';
