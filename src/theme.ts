@@ -79,7 +79,7 @@ function parseKeyframeString(keyframeName: string, rawStr: string): string {
 
     // merge defaultVars เข้ากับ defaultVarMap
     Object.assign(defaultVarMap, defaultVars);
-
+    console.log('theme.ts:84 |defaultVarMap| : ', defaultVarMap);
     // create runtime set:
     if (!keyframeRuntimeDict[keyframeName]) {
       keyframeRuntimeDict[keyframeName] = {};
