@@ -34,9 +34,14 @@ export const abbrMap = {
   'ct-type': 'container-type',
   ct: 'container',
   d: 'display',
-  family: 'font-family',
-  fs: 'font-size',
-  fw: 'font-weight',
+
+  /********** เพิ่มฟอนต์ shorthand **********/
+  fm: 'font-family', // fm[...]
+  fs: 'font-size', // fs[...]
+  fw: 'font-weight', // fw[...]
+  // ถ้าต้องการมากกว่านี้ เช่น fst => font-style, td => text-decoration, etc.
+  // ก็เติมได้
+
   fx: 'flex',
   basis: 'flex-basis',
   wrap: 'flex-wrap',
@@ -118,6 +123,10 @@ export const breakpoints = {
   dict: {} as Record<string, string>,
 };
 
+export const fontDict = {
+  dict: {} as Record<string, string>,
+};
+
 /**********************************************
  * 3) ConstructedStylesheet + fallback
  **********************************************/
@@ -126,10 +135,8 @@ export const constructedSheet = new CSSStyleSheet();
 let fallbackStyleElement: HTMLStyleElement | null = null;
 
 if ('adoptedStyleSheets' in Document.prototype) {
-  // ถ้ารองรับ adoptedStyleSheets
   document.adoptedStyleSheets = [...document.adoptedStyleSheets, constructedSheet];
 } else {
-  // fallback
   const styleEl = document.createElement('style');
   styleEl.id = 'styledwind-construct-fallback';
   document.head.appendChild(styleEl);
@@ -139,11 +146,10 @@ if ('adoptedStyleSheets' in Document.prototype) {
 export { fallbackStyleElement };
 
 /**********************************************
- * 4) แผนที่เก็บข้อมูล rule ที่ insert แล้ว
+ * 4) IInsertedRules + insertedRulesMap
  **********************************************/
 export interface IInsertedRules {
   displayName: string;
-  // ใส่ข้อมูลเพิ่มเติมได้ เช่น index, props, etc.
 }
 
 export const insertedRulesMap = new Map<string, IInsertedRules>();

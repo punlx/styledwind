@@ -1,4 +1,5 @@
 // styled.ts
+
 import { parseClassDefinition, convertCSSVariable } from './helpers';
 import { generateClassId } from './hash';
 import { insertedRulesMap, IInsertedRules } from './constant';

@@ -1,39 +1,35 @@
-import { breakpoints } from './constant';
+// theme.ts
+
+import { breakpoints, fontDict } from './constant';
 
 /**
  * generatePaletteCSS(colors):
- *  รับ Array 2D
- *    แถวแรก: ["dark","light","dim"]
- *    แถวที่เหลือ: ["blue-100","#E3F2FD","#BBDEFB","#90CAF9"]
- *  แล้วสร้างโค้ด .dark { --blue-100:#E3F2FD; } .light { --blue-100:#BBDEFB; } ...
+ *  สร้าง CSS ธีมสี เช่น html.dark{ --blue-100:#E3F2FD; }...
  */
 function generatePaletteCSS(colors: string[][]): string {
-  const modes = colors[0]; // ex. ["dark","light","dim"]
+  const modes = colors[0];
   const colorRows = colors.slice(1);
   let cssResult = '';
 
   for (let i = 0; i < modes.length; ++i) {
-    const modeName = modes[i]; // "dark" / "light" / "dim"
+    const modeName = modes[i];
     let classBody = '';
     for (let j = 0; j < colorRows.length; ++j) {
       const row = colorRows[j];
-      const colorName = row[0]; // ex. "blue-100"
-      const colorValue = row[i + 1]; // ex. "#E3F2FD"
+      const colorName = row[0];
+      const colorValue = row[i + 1];
       classBody += `--${colorName}:${colorValue};`;
     }
-    // ใส่ใน selector เช่น html.dark { --blue-100:#E3F2FD; ... }
-    // หรือถ้าคุณต้องการ .dark บน body/documentElement ก็ปรับได้
+    // สมมติใช้ html.dark{ ... }
     cssResult += `html.${modeName}{${classBody}}`;
   }
   return cssResult;
 }
 
 /**
- * แทนที่จะใช้ constructedSheet,
- * เราจะเขียนลง <style id="styledwind-theme"> ใน <head>
+ * เราแยก CSS theme ไว้ใน <style id="styledwind-theme"> แทน constructedSheet
  */
 let themeStyleEl: HTMLStyleElement | null = null;
-
 function ensureThemeStyleElement() {
   if (!themeStyleEl) {
     themeStyleEl = document.getElementById('styledwind-theme') as HTMLStyleElement;
@@ -47,10 +43,7 @@ function ensureThemeStyleElement() {
 }
 
 /**
- * setTheme(mode, modes):
- *  - ลบ class เก่าออกจาก html (หรือ documentElement)
- *  - ใส่ class ใหม่ (theme) เข้าไป
- *  - เก็บค่าใน localStorage ถ้าต้องการ
+ * setTheme(): เปลี่ยนคลาสบน html
  */
 function setTheme(mode: string, modes: string[]) {
   const htmlEl = document.documentElement;
@@ -60,7 +53,11 @@ function setTheme(mode: string, modes: string[]) {
 }
 
 /*********************************************
- * สุดท้าย export object theme
+ * 1) เพิ่ม fontDict ไว้ที่นี่
+ *********************************************/
+
+/*********************************************
+ * 2) ฟังก์ชัน screen / palette / font
  *********************************************/
 export const theme = {
   screen(breakpointList: Record<string, string>) {
@@ -68,28 +65,29 @@ export const theme = {
   },
 
   palette(colors: string[][]) {
-    // สร้าง CSS ทั้งหมดของ theme
     const paletteCSS = generatePaletteCSS(colors);
 
-    // เขียนลง <style id="styledwind-theme"> แทน constructedSheet
     const styleEl = ensureThemeStyleElement();
-    // replace เนื้อหาเก่า
     styleEl.textContent = paletteCSS;
 
-    // หลัง inject CSS แล้ว setTheme() ตามค่าที่บันทึกไว้
-    const modes = colors[0]; // ex. ["dark","light","dim"]
+    const modes = colors[0];
     const savedTheme = localStorage.getItem('styledwind-theme');
-
     if (savedTheme && modes.indexOf(savedTheme) !== -1) {
       setTheme(savedTheme, modes);
     } else {
-      // ค่า default สมมติ index[1] คือ "light"
       setTheme(modes[1] || 'light', modes);
     }
-
-    // คืน object ที่ให้ผู้ใช้เรียก .mode(...) ได้
     return {
       mode: (mode: string) => setTheme(mode, modes),
     };
+  },
+
+  /**
+   * font(fontMap): รับ object { 'display-1': 'fs[22px] fw[500]', ... }
+   * แล้ว merge ลงใน fontDict
+   */
+  font(fontMap: Record<string, string>) {
+    // รวมค่าเก่า/ใหม่
+    fontDict.dict = fontMap;
   },
 };

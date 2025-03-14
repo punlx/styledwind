@@ -1,4 +1,5 @@
 // insertCSSRules.ts
+
 import { constructedSheet, fallbackStyleElement } from './constant';
 import { IStyleDefinition, StateName } from './helpers';
 

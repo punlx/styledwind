@@ -1,5 +1,7 @@
 // helpers.ts
+
 import { abbrMap, breakpoints } from './constant';
+import { fontDict } from './constant'; // สำคัญ: import fontDict เพื่อ lookup
 
 export type StateName = {
   [varName: string]: string;
@@ -22,13 +24,9 @@ export interface IStyleDefinition {
     after?: Record<string, string>;
   };
 
-  // เพิ่มตรงนี้: บอกว่า varStates เป็นอ็อบเจ็กต์ที่ key เป็น string (เช่น "hover")
-  // และ value เป็น record { [variableName: string]: string }
   varStates?: {
     [stateName: string]: StateName;
   };
-
-  // ถ้ามี varBase, varPseudos ก็ type ให้ชัดเจนเช่นกัน:
   varBase?: Record<string, string>;
   varPseudos?: {
     before?: Record<string, string>;
@@ -42,14 +40,14 @@ export interface IStyleDefinition {
  * ฟังก์ชัน parse base / screen / container / pseudo ฯลฯ
  ************************************************************/
 
-/** แยก "bg[pink]" => ["bg","pink"] */
+/** ฟังก์ชันแยก abbr + value จากรูปแบบ "bg[red]" => ["bg","red"] */
 export function separateStyleAndProperties(abbr: string): [string, string] {
   const match = /^([\w\-\$]+)\[(.*)\]$/.exec(abbr.trim());
   if (!match) return ['', ''];
   return [match[1], match[2]];
 }
 
-/** ถ้าเจอ var(--xxx) หรือ --xxx ก็แทนด้วย var(--xxx) */
+/** ถ้าเจอ var(--xxx) หรือ --xxx => ทำเป็น var(--xxx) */
 export function convertCSSVariable(value: string) {
   if (value.includes('--')) {
     return value.replace(/(--[\w-]+)/g, 'var($1)');
@@ -57,16 +55,86 @@ export function convertCSSVariable(value: string) {
   return value;
 }
 
+/**
+ * ฟังก์ชันช่วย:
+ * ถ้า abbr === 'f' => expand fontDict
+ *    เช่น f[display-1] => "fs[22px] fw[500]" => ["fs[22px]", "fw[500]"]
+ * ถ้า abbr !== 'f' => คืน array 1 ตัว => [abbr[val]]
+ */
+function expandFontIfNeeded(abbr: string, propValue: string): string[] {
+  if (abbr !== 'f') {
+    // ไม่ใช่ฟอนต์ => คืน abbr[val] เดียว เช่น ["bg[red]"]
+    return [`${abbr}[${propValue}]`];
+  }
+  // abbr === 'f' => lookup fontDict
+  const expansion = fontDict.dict[propValue];
+  if (!expansion) {
+    throw new Error(`[SWD] Font key "${propValue}" not found in theme.font(...) dict.`);
+  }
+  // ex. expansion = "fs[22px] fw[500]"
+  const tokens = expansion.split(' ');
+
+  // กันไม่ให้มี screen(...), container(...), pseudo(...) ฯลฯ แทรกอยู่
+  // ถ้าคุณอยากให้ไม่ Error ก็ลบ check นี้ออก
+  for (const t of tokens) {
+    if (t.includes('(')) {
+      throw new Error(`[SWD] Not allowed nested syntax in font expansion: ${t}`);
+    }
+  }
+
+  // คืน array ของ token ex. ["fs[22px]", "fw[500]"]
+  return tokens;
+}
+
 /********************************************
- * 3) parse base style
+ * parseBaseStyle
  ********************************************/
 export function parseBaseStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const [styleAbbr, propValue] = separateStyleAndProperties(abbrLine);
   if (!styleAbbr) return;
 
-  // เช็คว่าเป็น variable หรือไม่
+  // ===> ขยาย font ถ้าจำเป็น
+  const expansions = expandFontIfNeeded(styleAbbr, propValue);
+
+  // ถ้า expansions ยาวกว่า 1 => loop parseBaseStyle()
+  if (expansions.length > 1 || expansions[0] !== `${styleAbbr}[${propValue}]`) {
+    // parse each
+    for (const ex of expansions) {
+      parseBaseStyle(ex, styleDef);
+    }
+    return;
+  }
+
+  // 1) ถ้าเจอ f[...] => lookup fontDict
+  if (styleAbbr === 'f') {
+    // เช่น propValue = 'display-1'
+    const expansion = fontDict.dict[propValue];
+    if (!expansion) {
+      throw new Error(`[SWD] Font key "${propValue}" not found in theme.font(...) dict.`);
+    }
+    // expansion เช่น "fs[22px] fw[500] fm[Sarabun-Bold]"
+    // split => ["fs[22px]", "fw[500]", "fm[Sarabun-Bold]"]
+    const tokens = expansion.split(' ');
+
+    // ตรวจสอบว่าไม่มี token แปลก เช่น screen(...) หรือ container(...)
+    // ถ้าอยากให้ error ถ้าเจอ screen(...) ก็เช็ค token
+    for (const t of tokens) {
+      if (t.startsWith('screen(') || t.startsWith('container(')) {
+        throw new Error(`[SWD] Not allowed screen/container in font expansion: ${t}`);
+      }
+    }
+
+    // แล้ว parseBaseStyle() แต่ละ token
+    for (const t of tokens) {
+      parseBaseStyle(t, styleDef);
+    }
+    return; // อย่าลืม return ไม่ให้ผ่าน logic ปกติข้างล่าง
+  }
+
+  // 2) ปกติ
   const isVariable = styleAbbr.startsWith('$');
   const realAbbr = isVariable ? styleAbbr.slice(1) : styleAbbr;
+
   const cssProp = abbrMap[realAbbr as keyof typeof abbrMap];
   if (!cssProp) {
     throw new Error(`"${realAbbr}" is not defined in abbrMap. (abbrLine=${abbrLine})`);
@@ -75,13 +143,10 @@ export function parseBaseStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const finalVal = convertCSSVariable(propValue);
 
   if (isVariable) {
-    // เก็บค่าตัวแปรไว้ใน varBase
     if (!styleDef.varBase) {
       styleDef.varBase = {};
     }
     styleDef.varBase[realAbbr] = finalVal;
-
-    // ตั้งค่าใน base เป็น var(--xxx)
     styleDef.base[cssProp] = `var(--${realAbbr})`;
   } else {
     styleDef.base[cssProp] = finalVal;
@@ -89,13 +154,12 @@ export function parseBaseStyle(abbrLine: string, styleDef: IStyleDefinition) {
 }
 
 /********************************************
- * 4) parse screen() / container() (เหมือนเดิม)
+ * parseScreenStyle / parseContainerStyle
  ********************************************/
 export function parseScreenStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   let inside = abbrLine.slice(openParenIdx + 1, -1).trim();
 
-  // ถ้าไม่ใช่ min/max อาจเป็น key breakpoint
   if (!(inside.startsWith('min') || inside.startsWith('max'))) {
     const [bp] = inside.split(', ');
     if (breakpoints.dict[bp]) {
@@ -132,9 +196,19 @@ export function parseScreenStyle(abbrLine: string, styleDef: IStyleDefinition) {
   for (const p of styleList) {
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
-    const cProp = abbrMap[abbr as keyof typeof abbrMap];
-    if (!cProp) throw new Error(`"${abbr}" not found in abbrMap.`);
-    screenProps[cProp] = convertCSSVariable(val);
+
+    // ===> ขยาย font
+    const expansions = expandFontIfNeeded(abbr, val);
+    for (const ex of expansions) {
+      const [abbr2, val2] = separateStyleAndProperties(ex);
+      if (!abbr2) continue;
+
+      const cProp = abbrMap[abbr2 as keyof typeof abbrMap];
+      if (!cProp) {
+        throw new Error(`"${abbr2}" not found in abbrMap.`);
+      }
+      screenProps[cProp] = convertCSSVariable(val2);
+    }
   }
 
   styleDef.screens.push({ query: mediaQuery, props: screenProps });
@@ -182,9 +256,18 @@ export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition
   for (const p of propsList) {
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
-    const cProp2 = abbrMap[abbr as keyof typeof abbrMap];
-    if (!cProp2) throw new Error(`"${abbr}" not found in abbrMap.`);
-    containerProps[cProp2] = convertCSSVariable(val);
+    // ===> ขยาย font
+    const expansions = expandFontIfNeeded(abbr, val);
+    for (const ex of expansions) {
+      const [abbr2, val2] = separateStyleAndProperties(ex);
+      if (!abbr2) continue;
+
+      const cProp2 = abbrMap[abbr2 as keyof typeof abbrMap];
+      if (!cProp2) {
+        throw new Error(`"${abbr2}" not found in abbrMap.`);
+      }
+      containerProps[cProp2] = convertCSSVariable(val2);
+    }
   }
 
   styleDef.containers.push({
@@ -206,12 +289,27 @@ export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefini
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
 
-    const cProp = abbrMap[abbr as keyof typeof abbrMap];
-    if (!cProp) throw new Error(`"${abbr}" not found in abbrMap.`);
-    if (abbr === 'content' && val === '') {
-      throw new Error(`Pseudo-element content[] must not be empty.`);
+    // ===> ขยาย font
+    const expansions = expandFontIfNeeded(abbr, val);
+    for (const ex of expansions) {
+      const [abbr2, val2] = separateStyleAndProperties(ex);
+      if (!abbr2) continue;
+
+      const isVariable = abbr2.startsWith('$');
+      const realAbbr = isVariable ? abbr2.slice(1) : abbr2;
+      const cProp = abbrMap[realAbbr as keyof typeof abbrMap];
+      if (!cProp) {
+        throw new Error(`"${realAbbr}" not found in abbrMap for pseudo-element ${funcName}.`);
+      }
+      if (realAbbr === 'content' && val2 === '') {
+        throw new Error(`Pseudo-element content[] must not be empty.`);
+      }
+
+      const finalVal = convertCSSVariable(val2);
+      // NOTE: ถ้าคุณอยากรองรับ varState / varPseudos => ต้องเขียน logic คล้าย state
+      // แต่ตอนนี้ pseudo-element ปกติ => ใส่ result ตรง ๆ
+      result[cProp] = finalVal;
     }
-    result[cProp] = convertCSSVariable(val);
   }
 
   styleDef.pseudos[funcName] = result;
@@ -230,34 +328,39 @@ export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
 
-    // เหมือน parseBaseStyle
-    const isVariable = abbr.startsWith('$');
-    const realAbbr = isVariable ? abbr.slice(1) : abbr;
+    // ===> ขยาย font ถ้าจำเป็น
+    const expansions = expandFontIfNeeded(abbr, val);
+    for (const ex of expansions) {
+      const [abbr2, val2] = separateStyleAndProperties(ex);
+      if (!abbr2) continue;
 
-    const cProp = abbrMap[realAbbr as keyof typeof abbrMap];
-    if (!cProp) {
-      throw new Error(`"${realAbbr}" not found in abbrMap for state ${funcName}.`);
-    }
-
-    const finalVal = convertCSSVariable(val);
-
-    if (isVariable) {
-      // เก็บ varStates ถ้าไม่มีให้สร้าง
-      if (!styleDef.varStates) {
-        styleDef.varStates = {};
+      const isVariable = abbr2.startsWith('$');
+      const realAbbr = isVariable ? abbr2.slice(1) : abbr2;
+      const cProp = abbrMap[realAbbr as keyof typeof abbrMap];
+      if (!cProp) {
+        throw new Error(`"${realAbbr}" not found in abbrMap for state ${funcName}.`);
       }
-      if (!styleDef.varStates[funcName]) {
-        styleDef.varStates[funcName] = {};
-      }
-      // เก็บค่า raw
-      // ตัวอย่าง: styleDef.varStates["hover"]["bg"] = "blue"
-      styleDef.varStates[funcName][realAbbr] = finalVal;
 
-      // ใน result ใส่เป็น var(--bg-hover) หรือ var(--bg) ดี?
-      // แนะนำใส่ suffix เพื่อกันสับสน
-      result[cProp] = `var(--${realAbbr}-${funcName})`;
-    } else {
-      result[cProp] = finalVal;
+      const finalVal = convertCSSVariable(val2);
+
+      if (isVariable) {
+        // เก็บ varStates ถ้าไม่มีให้สร้าง
+        if (!styleDef.varStates) {
+          styleDef.varStates = {};
+        }
+        if (!styleDef.varStates[funcName]) {
+          styleDef.varStates[funcName] = {};
+        }
+        // เก็บค่า raw
+        // ตัวอย่าง: styleDef.varStates["hover"]["bg"] = "blue"
+        styleDef.varStates[funcName][realAbbr] = finalVal;
+
+        // ใน result ใส่เป็น var(--bg-hover) หรือ var(--bg) ดี?
+        // แนะนำใส่ suffix เพื่อกันสับสน
+        result[cProp] = `var(--${realAbbr}-${funcName})`;
+      } else {
+        result[cProp] = finalVal;
+      }
     }
   }
 
@@ -265,7 +368,7 @@ export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
 }
 
 /********************************************
- * 6) parseSingleAbbr => dispatch
+ * parseSingleAbbr
  ********************************************/
 export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
@@ -286,9 +389,8 @@ export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
     parseStateStyle(abbrLine, styleDef);
   }
 }
-
 /********************************************
- * 7) parseClassDefinition()
+ * parseClassDefinition
  ********************************************/
 export function parseClassDefinition(className: string, abbrStyle: string): IStyleDefinition {
   const styleDef: IStyleDefinition = {
