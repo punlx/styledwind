@@ -1,7 +1,7 @@
 // helpers.ts
 
 import { abbrMap, breakpoints } from './constant';
-import { fontDict } from './constant'; // สำคัญ: import fontDict เพื่อ lookup
+import { fontDict } from './constant';
 
 export type StateName = {
   [varName: string]: string;
