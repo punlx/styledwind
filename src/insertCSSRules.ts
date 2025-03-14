@@ -19,10 +19,24 @@ let dirty = false;
  * buildCssText():
  *  สร้างสตริง CSS สำหรับ 1 className (displayName) และ styleDef
  */
+/***********************************************
+ * buildCssText()
+ ***********************************************/
 function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
   let cssText = '';
 
-  // 1) Base
+  // ถ้ามี styleDef.rootVars => ใส่ :root {...}
+  if (styleDef.rootVars) {
+    let varBlock = '';
+    for (const varName in styleDef.rootVars) {
+      varBlock += `${varName}:${styleDef.rootVars[varName]};`;
+    }
+    if (varBlock) {
+      cssText += `:root{${varBlock}}`;
+    }
+  }
+
+  // ต่อไปสร้าง .className {...}
   const baseObj = styleDef.base;
   if (Object.keys(baseObj).length > 0) {
     let baseProps = '';
@@ -32,7 +46,7 @@ function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
     cssText += `.${displayName}{${baseProps}}`;
   }
 
-  // 2) States (hover, focus, etc.)
+  // States
   for (const state in styleDef.states) {
     const obj = styleDef.states[state];
     let props = '';
@@ -42,7 +56,7 @@ function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
     cssText += `.${displayName}:${state}{${props}}`;
   }
 
-  // 3) Screens
+  // Screens
   for (const scr of styleDef.screens) {
     let props = '';
     for (const p in scr.props) {
@@ -51,7 +65,7 @@ function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
     cssText += `@media only screen and ${scr.query}{.${displayName}{${props}}}`;
   }
 
-  // 4) Container
+  // Container
   for (const ctnr of styleDef.containers) {
     let props = '';
     for (const p in ctnr.props) {
@@ -60,7 +74,7 @@ function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
     cssText += `@container ${ctnr.query}{.${displayName}{${props}}}`;
   }
 
-  // 5) Pseudos (before/after)
+  // Pseudos
   if (styleDef.pseudos.before) {
     let beforeProps = '';
     for (const p in styleDef.pseudos.before) {
@@ -79,53 +93,104 @@ function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
   return cssText;
 }
 
-/**
- * rebuildGlobalCSSDebounced():
- *  - ถ้าไม่มีการเรียกใช้อยู่, เริ่ม requestAnimationFrame
- *  - ถ้ามีการเรียกซ้ำระหว่างนี้, set dirty = true เพื่อบอกว่าหลังจบ frame นี้ค่อยทำอีกรอบ
- */
+/***********************************************
+ * transformVariables()
+ * - ใส่ hash ต่อท้าย --xxx => --xxx-<hash>
+ * - ใส่ค่า var ลงใน styleDef.rootVars
+ * - แก้ styleDef.base ที่เป็น var(--xxx) => var(--xxx-<hash>)
+ ***********************************************/
+function transformVariables(styleDef: IStyleDefinition, displayName: string) {
+  // แยก hash จาก displayName สมมติ 'box_abc123' => 'abc123'
+  const idx = displayName.indexOf('_');
+  if (idx < 0) return;
+  const hashPart = displayName.slice(idx + 1);
+
+  // สร้าง rootVars ถ้ายังไม่มี
+  styleDef.rootVars = styleDef.rootVars || {};
+
+  // base
+  if (styleDef.varBase) {
+    for (const varName in styleDef.varBase) {
+      // rawValue เช่น "red"
+      const rawValue = styleDef.varBase[varName];
+      // ตัวแปรจริง => "--bg-abc123"
+      const finalVarName = `--${varName}-${hashPart}`;
+
+      // ใส่ลง rootVars
+      styleDef.rootVars[finalVarName] = rawValue;
+
+      // แก้ใน styleDef.base => var(--bg) => var(--bg-abc123)
+      for (const cssProp in styleDef.base) {
+        styleDef.base[cssProp] = styleDef.base[cssProp].replace(
+          `var(--${varName})`,
+          `var(${finalVarName})`
+        );
+      }
+    }
+  }
+
+  if (styleDef.varStates) {
+    for (const stName in styleDef.varStates) {
+      const varsOfThatState = styleDef.varStates[stName];
+      for (const varName in varsOfThatState) {
+        const rawValue = varsOfThatState[varName]; // เช่น "blue"
+        // finalVarName = --bg-hover-hash
+        const finalVarName = `--${varName}-${stName}-${hashPart}`;
+        styleDef.rootVars![finalVarName] = rawValue;
+
+        // แล้ว replace ใน styleDef.states[stName].background-color = var(--bg-hover) => var(--bg-hover-hash)
+        for (const cssProp in styleDef.states[stName]) {
+          styleDef.states[stName][cssProp] = styleDef.states[stName][cssProp].replace(
+            `var(--${varName}-${stName})`,
+            `var(${finalVarName})`
+          );
+        }
+      }
+    }
+  }
+
+  // (หากต้องการรองรับ varStates, varPseudos => ทำ logic คล้ายกัน)
+}
+
+/***********************************************
+ * rebuildGlobalCSSDebounced()
+ ***********************************************/
 export function rebuildGlobalCSSDebounced() {
-  // ถ้ามีรอบ pending อยู่แล้ว => แค่ set dirty
   if (pending) {
     dirty = true;
     return;
   }
-
-  // ถ้าไม่มีรอบ pending => ตั้งค่าว่าเรากำลังรอ
   pending = true;
   dirty = false;
 
   requestAnimationFrame(() => {
-    // เริ่ม build CSS
     let newGlobalCss = '';
     for (const [displayName, styleDef] of styleDefMap.entries()) {
       newGlobalCss += buildCssText(displayName, styleDef);
     }
 
-    // commit ลง constructedSheet หรือ fallback
     if ('replaceSync' in constructedSheet) {
       (constructedSheet as CSSStyleSheet).replaceSync(newGlobalCss);
     } else if (fallbackStyleElement) {
       fallbackStyleElement.textContent = newGlobalCss;
     }
 
-    // จบ frame นี้แล้ว
     pending = false;
-    // ถ้ามีการเรียกซ้ำในระหว่างนี้ => dirty = true
     if (dirty) {
       rebuildGlobalCSSDebounced();
     }
   });
 }
 
-/**
- * insertCSSRules(displayName, styleDef):
- *  - เก็บ styleDef ลง map
- *  - แล้ว rebuild (debounced)
- */
+/***********************************************
+ * insertCSSRules(displayName, styleDef)
+ * - เรียก transformVariables -> set map -> rebuild
+ ***********************************************/
 export function insertCSSRules(displayName: string, styleDef: IStyleDefinition) {
+  // ใส่ hash + สร้าง styleDef.rootVars
+  transformVariables(styleDef, displayName);
+
   styleDefMap.set(displayName, styleDef);
 
-  // ก็เรียก debounced rebuild
   rebuildGlobalCSSDebounced();
 }

@@ -1,73 +1,93 @@
-// theme.ts
-import { constructedSheet, fallbackStyleElement, breakpoints } from './constant';
+import { breakpoints } from './constant';
 
+/**
+ * generatePaletteCSS(colors):
+ *  รับ Array 2D
+ *    แถวแรก: ["dark","light","dim"]
+ *    แถวที่เหลือ: ["blue-100","#E3F2FD","#BBDEFB","#90CAF9"]
+ *  แล้วสร้างโค้ด .dark { --blue-100:#E3F2FD; } .light { --blue-100:#BBDEFB; } ...
+ */
 function generatePaletteCSS(colors: string[][]): string {
-  const modes = colors[0]; // เช่น ["dark","light","dim"]
+  const modes = colors[0]; // ex. ["dark","light","dim"]
   const colorRows = colors.slice(1);
   let cssResult = '';
 
-  // สร้างสตริง .dark{ --xxx }, .light{ --xxx }
   for (let i = 0; i < modes.length; ++i) {
-    const modeName = modes[i];
+    const modeName = modes[i]; // "dark" / "light" / "dim"
     let classBody = '';
     for (let j = 0; j < colorRows.length; ++j) {
       const row = colorRows[j];
-      const colorName = row[0];
-      const colorValue = row[i + 1];
+      const colorName = row[0]; // ex. "blue-100"
+      const colorValue = row[i + 1]; // ex. "#E3F2FD"
       classBody += `--${colorName}:${colorValue};`;
     }
-    cssResult += `.${modeName}{${classBody}}`;
+    // ใส่ใน selector เช่น html.dark { --blue-100:#E3F2FD; ... }
+    // หรือถ้าคุณต้องการ .dark บน body/documentElement ก็ปรับได้
+    cssResult += `html.${modeName}{${classBody}}`;
   }
   return cssResult;
 }
 
 /**
+ * แทนที่จะใช้ constructedSheet,
+ * เราจะเขียนลง <style id="styledwind-theme"> ใน <head>
+ */
+let themeStyleEl: HTMLStyleElement | null = null;
+
+function ensureThemeStyleElement() {
+  if (!themeStyleEl) {
+    themeStyleEl = document.getElementById('styledwind-theme') as HTMLStyleElement;
+    if (!themeStyleEl) {
+      themeStyleEl = document.createElement('style');
+      themeStyleEl.id = 'styledwind-theme';
+      document.head.appendChild(themeStyleEl);
+    }
+  }
+  return themeStyleEl;
+}
+
+/**
  * setTheme(mode, modes):
- *  - ลบ class เก่า
- *  - ใส่ class ใหม่
- *  - บันทึก localStorage ถ้าต้องการ
+ *  - ลบ class เก่าออกจาก html (หรือ documentElement)
+ *  - ใส่ class ใหม่ (theme) เข้าไป
+ *  - เก็บค่าใน localStorage ถ้าต้องการ
  */
 function setTheme(mode: string, modes: string[]) {
-  document.body.classList.remove(...modes);
-  document.body.classList.add(mode);
+  const htmlEl = document.documentElement;
+  htmlEl.classList.remove(...modes);
+  htmlEl.classList.add(mode);
   localStorage.setItem('styledwind-theme', mode);
 }
 
+/*********************************************
+ * สุดท้าย export object theme
+ *********************************************/
 export const theme = {
   screen(breakpointList: Record<string, string>) {
     breakpoints.dict = breakpointList;
   },
 
   palette(colors: string[][]) {
-    // generate CSS ของทุกโหมด
+    // สร้าง CSS ทั้งหมดของ theme
     const paletteCSS = generatePaletteCSS(colors);
 
-    // append/replace sync
-    if ('replaceSync' in constructedSheet) {
-      const oldCss =
-        (constructedSheet as CSSStyleSheet).cssRules.length > 0
-          ? Array.from((constructedSheet as CSSStyleSheet).cssRules)
-              .map((rule) => rule.cssText)
-              .join('')
-          : '';
-      const newCss = oldCss + paletteCSS;
-      (constructedSheet as CSSStyleSheet).replaceSync(newCss);
-    } else if (fallbackStyleElement) {
-      fallbackStyleElement.textContent = (fallbackStyleElement.textContent || '') + paletteCSS;
-    }
+    // เขียนลง <style id="styledwind-theme"> แทน constructedSheet
+    const styleEl = ensureThemeStyleElement();
+    // replace เนื้อหาเก่า
+    styleEl.textContent = paletteCSS;
 
-    // หลังจาก inject CSS ตัวผู้ใช้ก็อาจเรียก setTheme(...) ตามต้องการ
-    // เช่น (options) เช็ค localStorage ว่ามีธีมเก่าไหม
-    const modes = colors[0];
+    // หลัง inject CSS แล้ว setTheme() ตามค่าที่บันทึกไว้
+    const modes = colors[0]; // ex. ["dark","light","dim"]
     const savedTheme = localStorage.getItem('styledwind-theme');
 
     if (savedTheme && modes.indexOf(savedTheme) !== -1) {
       setTheme(savedTheme, modes);
     } else {
-      // ค่า default
-      setTheme(modes[1] || 'light', modes); // สมมติ index[1] คือ "light"
+      // ค่า default สมมติ index[1] คือ "light"
+      setTheme(modes[1] || 'light', modes);
     }
 
+    // คืน object ที่ให้ผู้ใช้เรียก .mode(...) ได้
     return {
       mode: (mode: string) => setTheme(mode, modes),
     };

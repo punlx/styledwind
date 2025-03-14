@@ -1,9 +1,8 @@
 // styled.ts
-
 import { parseClassDefinition, convertCSSVariable } from './helpers';
 import { generateClassId } from './hash';
 import { insertedRulesMap, IInsertedRules } from './constant';
-import { insertCSSRules, styleDefMap, rebuildGlobalCSSDebounced } from './insertCSSRules';
+import { insertCSSRules, styleDefMap } from './insertCSSRules'; // notice we no longer need rebuildGlobalCSSDebounced
 import { abbrMap } from './constant';
 
 /**
@@ -88,9 +87,9 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
   }
 
   /**
-   * resultObj.get(...).set(...)
-   * - อัปเดต styleDefMap[displayName].base
-   * - เรียก rebuildGlobalCSSDebounced() เพื่อ commit
+   * resultObj.get(...).set(...):
+   *  - เฉพาะคีย์ที่ขึ้นต้นด้วย '$' => set CSS Variable
+   *  - ถ้าไม่ใช่ => throw error (หรือจะ console.error)
    */
   resultObj.get = function <K2 extends keyof T>(classKey: K2) {
     return {
@@ -101,28 +100,33 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
           return;
         }
 
-        // หา styleDef ใน styleDefMap
-        const styleDef = styleDefMap.get(displayName);
-        if (!styleDef) {
-          console.warn(`No styleDef found for displayName "${displayName}".`);
-          return;
-        }
+        // ดึง hash เช่น "box_abc123" => "abc123"
+        const underscoreIdx = displayName.indexOf('_');
+        const hashPart = underscoreIdx > 0 ? displayName.slice(underscoreIdx + 1) : '';
 
-        // อัปเดต base properties
+        // loop props
         for (const abbr in props) {
-          const cssProp = abbrMap[abbr as keyof typeof abbrMap];
-          if (!cssProp) {
-            console.warn(`abbr "${abbr}" not found in abbrMap. skipping`);
-            continue;
-          }
-          const val = props[abbr];
-          if (val !== undefined && val !== null) {
-            styleDef.base[cssProp] = convertCSSVariable(val);
-          }
-        }
+          let val = props[abbr];
+          if (val == null) continue;
 
-        // เรียก rebuildGlobalCSSDebounced ให้ commit
-        rebuildGlobalCSSDebounced();
+          // ถ้าไม่ได้ขึ้นต้นด้วย '$' => error
+          if (!abbr.startsWith('$')) {
+            // handle error code
+            throw new Error(
+              `[SWD-ERR] Attempted to set normal property "${abbr}" via .set(). Only $variable is supported now.`
+            );
+          }
+
+          // ถ้าเป็น $variable => setProperty
+          const varName = abbr.slice(1); // "bg"
+          const finalVar = `--${varName}-${hashPart}`;
+
+          // ถ้า val มี '--...' => ห่อด้วย var(...)
+          val = convertCSSVariable(val);
+
+          // setProperty ที่ :root
+          document.documentElement.style.setProperty(finalVar, val);
+        }
       },
     };
   };

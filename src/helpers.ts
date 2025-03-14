@@ -17,6 +17,16 @@ export interface IStyleDefinition {
     before?: Record<string, string>;
     after?: Record<string, string>;
   };
+
+  // ช่องทางเก็บ variable
+  varBase?: Record<string, string>; // key => rawValue
+  varStates?: Record<string, Record<string, string>>;
+  varPseudos?: {
+    before?: Record<string, string>;
+    after?: Record<string, string>;
+  };
+  // สุดท้าย เราจะสร้าง rootVars หลังต่อ hash
+  rootVars?: Record<string, string>;
 }
 
 /************************************************************
@@ -25,7 +35,7 @@ export interface IStyleDefinition {
 
 /** แยก "bg[pink]" => ["bg","pink"] */
 export function separateStyleAndProperties(abbr: string): [string, string] {
-  const match = /^([\w-]+)\[(.*)\]$/.exec(abbr.trim());
+  const match = /^([\w\-\$]+)\[(.*)\]$/.exec(abbr.trim());
   if (!match) return ['', ''];
   return [match[1], match[2]];
 }
@@ -38,17 +48,40 @@ export function convertCSSVariable(value: string) {
   return value;
 }
 
+/********************************************
+ * 3) parse base style
+ ********************************************/
 export function parseBaseStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const [styleAbbr, propValue] = separateStyleAndProperties(abbrLine);
   if (!styleAbbr) return;
-  const cssProp = abbrMap[styleAbbr as keyof typeof abbrMap];
+
+  // เช็คว่าเป็น variable หรือไม่
+  const isVariable = styleAbbr.startsWith('$');
+  const realAbbr = isVariable ? styleAbbr.slice(1) : styleAbbr;
+  const cssProp = abbrMap[realAbbr as keyof typeof abbrMap];
   if (!cssProp) {
-    throw new Error(`"${styleAbbr}" is not defined in abbrMap.`);
+    throw new Error(`"${realAbbr}" is not defined in abbrMap. (abbrLine=${abbrLine})`);
   }
-  styleDef.base[cssProp] = convertCSSVariable(propValue);
+
+  const finalVal = convertCSSVariable(propValue);
+
+  if (isVariable) {
+    // เก็บค่าตัวแปรไว้ใน varBase
+    if (!styleDef.varBase) {
+      styleDef.varBase = {};
+    }
+    styleDef.varBase[realAbbr] = finalVal;
+
+    // ตั้งค่าใน base เป็น var(--xxx)
+    styleDef.base[cssProp] = `var(--${realAbbr})`;
+  } else {
+    styleDef.base[cssProp] = finalVal;
+  }
 }
 
-/** screen(min-w[600px], bg[red]) */
+/********************************************
+ * 4) parse screen() / container() (เหมือนเดิม)
+ ********************************************/
 export function parseScreenStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   let inside = abbrLine.slice(openParenIdx + 1, -1).trim();
@@ -178,7 +211,7 @@ export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefini
 /** hover(bg[red]) / focus(fs[20px]) */
 export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
-  const funcName = abbrLine.slice(0, openParenIdx).trim();
+  const funcName = abbrLine.slice(0, openParenIdx).trim(); // เช่น "hover"
   const inside = abbrLine.slice(openParenIdx + 1, -1).trim();
 
   const propsInState = inside.split(/ (?=[^\[\]]*(?:\[|$))/);
@@ -187,17 +220,44 @@ export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
   for (const p of propsInState) {
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
-    const cProp = abbrMap[abbr as keyof typeof abbrMap];
-    if (!cProp) throw new Error(`"${abbr}" not found in abbrMap.`);
-    result[cProp] = convertCSSVariable(val);
+
+    // เหมือน parseBaseStyle
+    const isVariable = abbr.startsWith('$');
+    const realAbbr = isVariable ? abbr.slice(1) : abbr;
+
+    const cProp = abbrMap[realAbbr as keyof typeof abbrMap];
+    if (!cProp) {
+      throw new Error(`"${realAbbr}" not found in abbrMap for state ${funcName}.`);
+    }
+
+    const finalVal = convertCSSVariable(val);
+
+    if (isVariable) {
+      // เก็บ varStates ถ้าไม่มีให้สร้าง
+      if (!styleDef.varStates) {
+        styleDef.varStates = {};
+      }
+      if (!styleDef.varStates[funcName]) {
+        styleDef.varStates[funcName] = {};
+      }
+      // เก็บค่า raw
+      // ตัวอย่าง: styleDef.varStates["hover"]["bg"] = "blue"
+      styleDef.varStates[funcName][realAbbr] = finalVal;
+
+      // ใน result ใส่เป็น var(--bg-hover) หรือ var(--bg) ดี?
+      // แนะนำใส่ suffix เพื่อกันสับสน
+      result[cProp] = `var(--${realAbbr}-${funcName})`;
+    } else {
+      result[cProp] = finalVal;
+    }
   }
 
   styleDef.states[funcName] = result;
 }
 
-/************************************************************
- * parseSingleAbbr => dispatch ไปยัง parser ย่อย
- ************************************************************/
+/********************************************
+ * 6) parseSingleAbbr => dispatch
+ ********************************************/
 export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   if (openParenIdx === -1) {
@@ -218,9 +278,9 @@ export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   }
 }
 
-/************************************************************
- * รวมเป็น parseClassDefinition()
- ************************************************************/
+/********************************************
+ * 7) parseClassDefinition()
+ ********************************************/
 export function parseClassDefinition(className: string, abbrStyle: string): IStyleDefinition {
   const styleDef: IStyleDefinition = {
     base: {},
