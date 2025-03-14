@@ -1,6 +1,10 @@
 // helpers.ts
 import { abbrMap, breakpoints } from './constant';
 
+export type StateName = {
+  [varName: string]: string;
+};
+
 // interface หลักเก็บ style
 export interface IStyleDefinition {
   base: Record<string, string>;
@@ -18,14 +22,19 @@ export interface IStyleDefinition {
     after?: Record<string, string>;
   };
 
-  // ช่องทางเก็บ variable
-  varBase?: Record<string, string>; // key => rawValue
-  varStates?: Record<string, Record<string, string>>;
+  // เพิ่มตรงนี้: บอกว่า varStates เป็นอ็อบเจ็กต์ที่ key เป็น string (เช่น "hover")
+  // และ value เป็น record { [variableName: string]: string }
+  varStates?: {
+    [stateName: string]: StateName;
+  };
+
+  // ถ้ามี varBase, varPseudos ก็ type ให้ชัดเจนเช่นกัน:
+  varBase?: Record<string, string>;
   varPseudos?: {
     before?: Record<string, string>;
     after?: Record<string, string>;
   };
-  // สุดท้าย เราจะสร้าง rootVars หลังต่อ hash
+
   rootVars?: Record<string, string>;
 }
 

@@ -1,6 +1,6 @@
 // insertCSSRules.ts
 import { constructedSheet, fallbackStyleElement } from './constant';
-import { IStyleDefinition } from './helpers';
+import { IStyleDefinition, StateName } from './helpers';
 
 /**
  * styleDefMap:
@@ -131,7 +131,7 @@ function transformVariables(styleDef: IStyleDefinition, displayName: string) {
 
   if (styleDef.varStates) {
     for (const stName in styleDef.varStates) {
-      const varsOfThatState = styleDef.varStates[stName];
+      const varsOfThatState = styleDef.varStates[stName] as StateName;
       for (const varName in varsOfThatState) {
         const rawValue = varsOfThatState[varName]; // เช่น "blue"
         // finalVarName = --bg-hover-hash
