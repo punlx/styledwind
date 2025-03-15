@@ -1,10 +1,12 @@
 // theme.ts
+
 import { breakpoints, fontDict, abbrMap } from './constant';
 import { generateClassId } from './hash'; // <-- import function
 
 let themeStyleEl: HTMLStyleElement | null = null;
 let cachedPaletteCSS = '';
 let cachedKeyframeCSS = '';
+let cachedSpacingCSS = ''; // <--- เพิ่มตัวแปรสำหรับ spacing
 
 function ensureThemeStyleElement() {
   if (!themeStyleEl) {
@@ -21,7 +23,8 @@ function ensureThemeStyleElement() {
 
 function updateThemeStyleContent() {
   const styleEl = ensureThemeStyleElement();
-  styleEl.textContent = cachedPaletteCSS + cachedKeyframeCSS;
+  // ต่อ string ของ palette, spacing, keyframe
+  styleEl.textContent = cachedPaletteCSS + cachedSpacingCSS + cachedKeyframeCSS;
 }
 
 function setTheme(mode: string, modes: string[]) {
@@ -62,14 +65,12 @@ function parseKeyframeString(keyframeName: string, rawStr: string): string {
   let match: RegExpExecArray | null;
   const blocks: Array<{ label: string; css: string }> = [];
 
-  // defaultVarMap => เก็บ { "--bg-my-move-xxxx": "red" }
   const defaultVarMap: Record<string, string> = {};
 
   while ((match = regex.exec(rawStr)) !== null) {
-    const label = match[1]; // "0%", "50%", "from", "to"
-    const abbrBody = match[2]; // ex. "bg[red] c[--blue-100]"
+    const label = match[1]; // ex. "0%", "50%", "from", "to"
+    const abbrBody = match[2]; // ex. "bg[red]"
 
-    // parse block => ได้ { cssText, varMap, defaultVars }
     const { cssText, varMap, defaultVars } = parseKeyframeAbbr(
       abbrBody.trim(),
       keyframeName,
@@ -77,10 +78,9 @@ function parseKeyframeString(keyframeName: string, rawStr: string): string {
     );
     blocks.push({ label, css: cssText });
 
-    // merge defaultVars เข้ากับ defaultVarMap
+    // merge defaultVars
     Object.assign(defaultVarMap, defaultVars);
-    console.log('theme.ts:84 |defaultVarMap| : ', defaultVarMap);
-    // create runtime set:
+
     if (!keyframeRuntimeDict[keyframeName]) {
       keyframeRuntimeDict[keyframeName] = {};
     }
@@ -105,7 +105,7 @@ function parseKeyframeString(keyframeName: string, rawStr: string): string {
     }
   }
 
-  // สร้าง :root { ... } ถ้ามี defaultVarMap
+  // สร้าง :root {} สำหรับตัวแปร defaultVarMap
   let rootVarsBlock = '';
   for (const varName in defaultVarMap) {
     rootVarsBlock += `${varName}:${defaultVarMap[varName]};`;
@@ -178,18 +178,10 @@ function parseKeyframeAbbr(
       // gen hash
       const hashStr = generateClassId(baseStringForHash + styleAbbr + propVal);
       const finalVarName = `--${styleAbbr}-${keyframeName}-${hashStr}`;
-
-      // ex. background-color: var(--bg-my-move-xxx)
       cssText += `${cssProp}:var(${finalVarName});`;
-
-      // เก็บลง varMap => runtime .set
       varMap[styleAbbr] = finalVarName;
-
-      // เก็บ defaultVars => :root{ --bg-my-move-xxx: propVal }
-      // ex. :root{ --bg-my-move-xxx:red }
       defaultVars[finalVarName] = propVal;
     } else {
-      // normal => background-color:red
       cssText += `${cssProp}:${propVal};`;
     }
   }
@@ -200,6 +192,20 @@ function parseKeyframeAbbr(
 function appendKeyframeCSS(css: string) {
   cachedKeyframeCSS += css;
   updateThemeStyleContent();
+}
+
+/**
+ * สร้าง CSS สำหรับ spacingMap แล้วคืนเป็นสตริง
+ * เช่น spacing({ 'spacing-1': '12px' }) => :root { --spacing-1:12px; }
+ */
+function generateSpacingCSS(spacingMap: Record<string, string>): string {
+  let rootBlock = '';
+  for (const key in spacingMap) {
+    const val = spacingMap[key];
+    // ใส่เป็น :root { --spacing-1:12px; } เป็นต้น
+    rootBlock += `--${key}:${val};`;
+  }
+  return rootBlock ? `:root{${rootBlock}}` : '';
 }
 
 export const theme = {
@@ -229,7 +235,7 @@ export const theme = {
 
   /**
    * keyframe(keyframeMap):
-   * 1) parse => ได้ finalCSS (มี :root{} + @keyframes ...)
+   * 1) parse => finalCSS (มี :root{} + @keyframes ...)
    * 2) append => รวมใน style #styledwind-theme
    * 3) สร้าง runtimeObj => user .set({$bg:'pink'})
    */
@@ -238,12 +244,9 @@ export const theme = {
 
     for (const keyName in keyframeMap) {
       const rawStr = keyframeMap[keyName];
-      // parse => finalCSS
       const finalCSS = parseKeyframeString(keyName, rawStr);
-      // append
       appendKeyframeCSS(finalCSS);
 
-      // copy runtime pointer
       if (!keyframeRuntimeDict[keyName]) {
         keyframeRuntimeDict[keyName] = {};
       }
@@ -251,5 +254,16 @@ export const theme = {
     }
 
     return resultObj;
+  },
+
+  /**
+   * spacing(spacingMap):
+   * แปลง key => value เป็นตัวแปร :root { --<key>:<value>; }
+   */
+  spacing(spacingMap: Record<string, string>) {
+    // สร้างสตริง CSS ของ spacingMap
+    cachedSpacingCSS = generateSpacingCSS(spacingMap);
+    // อัปเดตลงใน style #styledwind-theme ร่วมกับ palette/keyframe
+    updateThemeStyleContent();
   },
 };
