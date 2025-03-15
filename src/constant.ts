@@ -11,15 +11,11 @@ export const abbrMap = {
   ai: 'align-items',
   as: 'align-self',
   d: 'display',
-  '-webkit-d': '-webkit-display', // (ไม่ค่อยพบว่าได้ใช้ แต่ใส่เผื่อ)
 
   /********************************************
    * Animation
    ********************************************/
   ani: 'animation',
-  '-webkit-ani': '-webkit-animation',
-  '-moz-ani': '-moz-animation',
-  '-ms-ani': '-ms-animation',
   'ani-delay': 'animation-delay',
   'ani-dir': 'animation-direction',
   'ani-dur': 'animation-duration',
@@ -52,8 +48,6 @@ export const abbrMap = {
   'bd-collapse': 'border-collapse',
   'bd-img': 'border-image',
   rd: 'border-radius',
-  '-webkit-rd': '-webkit-border-radius',
-  '-moz-rd': '-moz-border-radius',
   outl: 'outline',
   'outl-width': 'outline-width',
   'outl-color': 'outline-color',
@@ -64,17 +58,13 @@ export const abbrMap = {
    * Box Shadow / Sizing
    ********************************************/
   sd: 'box-shadow',
-  '-webkit-sd': '-webkit-box-shadow',
-  '-moz-sd': '-moz-box-shadow',
   siz: 'box-sizing',
-  'siz-webkit': '-webkit-box-sizing',
-  'siz-moz': '-moz-box-sizing',
 
   /********************************************
    * Color, Cursor
    ********************************************/
   c: 'color',
-  curs: 'cursor',
+  cur: 'cursor',
 
   /********************************************
    * Container Query
@@ -95,8 +85,6 @@ export const abbrMap = {
    * Flex / Grid
    ********************************************/
   fx: 'flex',
-  '-webkit-fx': '-webkit-flex',
-  '-moz-fx': '-moz-flex',
   'fx-basis': 'flex-basis',
   basis: 'flex-basis', // (สำรอง ถ้าอยากใช้ basis[...] ตรง ๆ)
   wrap: 'flex-wrap',
@@ -160,10 +148,6 @@ export const abbrMap = {
   'tx-ws': 'white-space',
 
   'tx-adj': 'text-size-adjust',
-  'tx-adj-webkit': '-webkit-text-size-adjust',
-  'tx-adj-moz': '-moz-text-size-adjust',
-  'tx-adj-ms': '-ms-text-size-adjust',
-
   'tx-decor-line': 'text-decoration-line',
   'tx-decor-color': 'text-decoration-color',
   'tx-decor-style': 'text-decoration-style',
@@ -173,11 +157,9 @@ export const abbrMap = {
    * Filter / Blend / Backdrop
    ********************************************/
   fil: 'filter',
-  '-webkit-fil': '-webkit-filter',
   bf: 'backdrop-filter',
   '-webkit-bf': '-webkit-backdrop-filter',
   mbm: 'mix-blend-mode',
-  '-webkit-bg-blend': '-webkit-background-blend-mode', // อาจไม่ได้ใช้จริง
 
   /********************************************
    * Dimensions / Spacing
@@ -237,15 +219,12 @@ export const abbrMap = {
   /********************************************
    * Opacity, Pointer Events, Cursor
    ********************************************/
-  ptr: 'pointer-events',
+  pe: 'pointer-events',
 
   /********************************************
    * Transform / Transition / Will-change
    ********************************************/
   tf: 'transform',
-  '-webkit-tf': '-webkit-transform',
-  '-moz-tf': '-moz-transform',
-  '-ms-tf': '-ms-transform',
   'tf-origin': 'transform-origin',
   'tf-box': 'transform-box',
   'tf-style': 'transform-style',
@@ -254,9 +233,6 @@ export const abbrMap = {
   'backface-vis': 'backface-visibility',
 
   tsn: 'transition',
-  '-webkit-tsn': '-webkit-transition',
-  '-moz-tsn': '-moz-transition',
-  '-ms-tsn': '-ms-transition',
   'tsn-delay': 'transition-delay',
   'tsn-dur': 'transition-duration',
   'tsn-prop': 'transition-property',
@@ -278,12 +254,9 @@ export const abbrMap = {
    ********************************************/
   app: 'appearance',
   '-webkit-app': '-webkit-appearance',
-  '-moz-app': '-moz-appearance',
 
-  sel: 'user-select',
+  us: 'user-select',
   '-webkit-sel': '-webkit-user-select',
-  '-moz-sel': '-moz-user-select',
-  '-ms-sel': '-ms-user-select',
 
   /********************************************
    * Misc
