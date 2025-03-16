@@ -47,7 +47,7 @@ export const abbrMap = {
   'bd-spacing': 'border-spacing',
   'bd-collapse': 'border-collapse',
   'bd-img': 'border-image',
-  rd: 'border-radius',
+  bdrd: 'border-radius',
   outl: 'outline',
   'outl-width': 'outline-width',
   'outl-color': 'outline-color',
