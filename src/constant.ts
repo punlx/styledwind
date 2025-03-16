@@ -15,15 +15,15 @@ export const abbrMap = {
   /********************************************
    * Animation
    ********************************************/
-  ani: 'animation',
-  'ani-delay': 'animation-delay',
-  'ani-dir': 'animation-direction',
-  'ani-dur': 'animation-duration',
-  'ani-fill': 'animation-fill-mode',
-  'ani-count': 'animation-iteration-count',
-  'ani-name': 'animation-name',
-  'ani-play': 'animation-play-state',
-  'ani-timefun': 'animation-timing-function',
+  am: 'animation',
+  'am-delay': 'animation-delay',
+  'am-dir': 'animation-direction',
+  'am-dur': 'animation-duration',
+  'am-fill': 'animation-fill-mode',
+  'am-count': 'animation-iteration-count',
+  'am-name': 'animation-name',
+  'am-play': 'animation-play-state',
+  'am-timefun': 'animation-timing-function',
 
   /********************************************
    * Background
@@ -47,31 +47,31 @@ export const abbrMap = {
   'bd-spacing': 'border-spacing',
   'bd-collapse': 'border-collapse',
   'bd-img': 'border-image',
-  bdrd: 'border-radius',
-  outl: 'outline',
-  'outl-width': 'outline-width',
-  'outl-color': 'outline-color',
-  'outl-style': 'outline-style',
-  'outl-offset': 'outline-offset',
+  br: 'border-radius',
+  ol: 'outline',
+  'ol-width': 'outline-width',
+  'ol-color': 'outline-color',
+  'ol-style': 'outline-style',
+  'ol-offset': 'outline-offset',
 
   /********************************************
    * Box Shadow / Sizing
    ********************************************/
   sd: 'box-shadow',
-  siz: 'box-sizing',
+  sz: 'box-sizing',
 
   /********************************************
    * Color, Cursor
    ********************************************/
   c: 'color',
-  cur: 'cursor',
+  cs: 'cursor',
 
   /********************************************
    * Container Query
    ********************************************/
-  'ct-type': 'container-type',
-  ct: 'container',
-  'ct-name': 'container-name',
+  'cn-type': 'container-type',
+  cn: 'container',
+  'cn-name': 'container-name',
 
   /********************************************
    * Columns / Gap
@@ -88,7 +88,7 @@ export const abbrMap = {
   'fx-basis': 'flex-basis',
   basis: 'flex-basis', // (สำรอง ถ้าอยากใช้ basis[...] ตรง ๆ)
   wrap: 'flex-wrap',
-  direc: 'flex-direction',
+  dir: 'flex-direction',
   flow: 'flex-flow',
   grow: 'flex-grow',
   shrink: 'flex-shrink',
@@ -262,7 +262,7 @@ export const abbrMap = {
    * Misc
    ********************************************/
   iso: 'isolation',
-  content: 'content',
+  ct: 'content',
 } as const;
 
 /**********************************************
