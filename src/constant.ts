@@ -17,7 +17,7 @@ export const abbrMap = {
    ********************************************/
   am: 'animation',
   'am-delay': 'animation-delay',
-  'am-dir': 'animation-direction',
+  'am-drt': 'animation-direction',
   'am-dur': 'animation-duration',
   'am-fill': 'animation-fill-mode',
   'am-count': 'animation-iteration-count',
@@ -88,7 +88,7 @@ export const abbrMap = {
   'fx-basis': 'flex-basis',
   basis: 'flex-basis', // (สำรอง ถ้าอยากใช้ basis[...] ตรง ๆ)
   wrap: 'flex-wrap',
-  dir: 'flex-direction',
+  drt: 'flex-direction',
   flow: 'flex-flow',
   grow: 'flex-grow',
   shrink: 'flex-shrink',
