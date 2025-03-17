@@ -72,6 +72,60 @@ function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
   return cssText;
 }
 
+/**
+ * doRebuild:
+ * - รวม CSS จาก styleDefMap => ใส่ลง constructedSheet หรือ fallback
+ */
+function doRebuild() {
+  let newGlobalCss = '';
+  for (const [displayName, styleDef] of styleDefMap.entries()) {
+    newGlobalCss += buildCssText(displayName, styleDef);
+  }
+
+  // --- ใส่ลง constructedSheet หรือ fallback ---
+  // constructedSheet = null ตอน SSR => เช็ค
+  if (constructedSheet) {
+    // ถ้า browser รองรับ .replaceSync
+    if ('replaceSync' in constructedSheet) {
+      constructedSheet.replaceSync(newGlobalCss);
+    } else if (fallbackStyleElement) {
+      fallbackStyleElement.textContent = newGlobalCss;
+    }
+  } else if (fallbackStyleElement) {
+    fallbackStyleElement.textContent = newGlobalCss;
+  }
+
+  pending = false;
+  if (dirty) {
+    rebuildGlobalCSSDebounced();
+  }
+}
+
+/**
+ * rebuildGlobalCSSDebounced():
+ * - ถ้าอยู่บน client => ใช้ requestAnimationFrame
+ * - ถ้าเป็น SSR => ใช้ fallback (call ทันที หรือ setTimeout 0)
+ */
+function rebuildGlobalCSSDebounced() {
+  if (pending) {
+    dirty = true;
+    return;
+  }
+  pending = true;
+  dirty = false;
+
+  // --- เช็คถ้าอยู่บน client มี requestAnimationFrame ---
+  if (typeof window !== 'undefined' && typeof requestAnimationFrame !== 'undefined') {
+    requestAnimationFrame(() => {
+      doRebuild();
+    });
+  } else {
+    // --- SSR or no requestAnimationFrame => fallback ---
+    // เรียก doRebuild() ทันที (หรือ setTimeout 0)
+    doRebuild();
+  }
+}
+
 function transformVariables(styleDef: IStyleDefinition, displayName: string) {
   const idx = displayName.indexOf('_');
   if (idx < 0) return;
@@ -112,33 +166,6 @@ function transformVariables(styleDef: IStyleDefinition, displayName: string) {
       }
     }
   }
-}
-
-function rebuildGlobalCSSDebounced() {
-  if (pending) {
-    dirty = true;
-    return;
-  }
-  pending = true;
-  dirty = false;
-
-  requestAnimationFrame(() => {
-    let newGlobalCss = '';
-    for (const [displayName, styleDef] of styleDefMap.entries()) {
-      newGlobalCss += buildCssText(displayName, styleDef);
-    }
-
-    if ('replaceSync' in constructedSheet) {
-      constructedSheet.replaceSync(newGlobalCss);
-    } else if (fallbackStyleElement) {
-      fallbackStyleElement.textContent = newGlobalCss;
-    }
-
-    pending = false;
-    if (dirty) {
-      rebuildGlobalCSSDebounced();
-    }
-  });
 }
 
 export function insertCSSRules(displayName: string, styleDef: IStyleDefinition) {
