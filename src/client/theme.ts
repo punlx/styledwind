@@ -1,3 +1,4 @@
+// src/client/theme.ts
 import { breakpoints, fontDict } from '../../src/shared/constant';
 import { generateClassId } from '../../src/shared/hash';
 

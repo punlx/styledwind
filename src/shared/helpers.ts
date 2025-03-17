@@ -1,3 +1,4 @@
+// src/shared/helpers.ts
 import { abbrMap, breakpoints, fontDict } from './constant';
 
 export interface IStyleDefinition {

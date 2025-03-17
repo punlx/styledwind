@@ -1,3 +1,4 @@
+// src/shared/hash.ts
 const AD_REPLACER_R = /(a)(d)/gi;
 const CHARS_LENGTH = 52;
 const SEED = 5381;
