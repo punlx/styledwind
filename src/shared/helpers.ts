@@ -1,13 +1,5 @@
-// helpers.ts
+import { abbrMap, breakpoints, fontDict } from './constant';
 
-import { abbrMap, breakpoints } from './constant';
-import { fontDict } from './constant';
-
-export type StateName = {
-  [varName: string]: string;
-};
-
-// interface หลักเก็บ style
 export interface IStyleDefinition {
   base: Record<string, string>;
   states: Record<string, Record<string, string>>;
@@ -25,7 +17,7 @@ export interface IStyleDefinition {
   };
 
   varStates?: {
-    [stateName: string]: StateName;
+    [stateName: string]: Record<string, string>;
   };
   varBase?: Record<string, string>;
   varPseudos?: {
@@ -36,18 +28,22 @@ export interface IStyleDefinition {
   rootVars?: Record<string, string>;
 }
 
-/************************************************************
- * ฟังก์ชัน parse base / screen / container / pseudo ฯลฯ
- ************************************************************/
+export function createEmptyStyleDef(): IStyleDefinition {
+  return {
+    base: {},
+    states: {},
+    screens: [],
+    containers: [],
+    pseudos: {},
+  };
+}
 
-/** ฟังก์ชันแยก abbr + value จากรูปแบบ "bg[red]" => ["bg","red"] */
 export function separateStyleAndProperties(abbr: string): [string, string] {
   const match = /^([\w\-\$]+)\[(.*)\]$/.exec(abbr.trim());
   if (!match) return ['', ''];
   return [match[1], match[2]];
 }
 
-/** ถ้าเจอ var(--xxx) หรือ --xxx => ทำเป็น var(--xxx) */
 export function convertCSSVariable(value: string) {
   if (value.includes('--')) {
     return value.replace(/(--[\w-]+)/g, 'var($1)');
@@ -55,83 +51,39 @@ export function convertCSSVariable(value: string) {
   return value;
 }
 
-/**
- * ฟังก์ชันช่วย:
- * ถ้า abbr === 'f' => expand fontDict
- *    เช่น f[display-1] => "fs[22px] fw[500]" => ["fs[22px]", "fw[500]"]
- * ถ้า abbr !== 'f' => คืน array 1 ตัว => [abbr[val]]
- */
 function expandFontIfNeeded(abbr: string, propValue: string): string[] {
   if (abbr !== 'f') {
-    // ไม่ใช่ฟอนต์ => คืน abbr[val] เดียว เช่น ["bg[red]"]
     return [`${abbr}[${propValue}]`];
   }
-  // abbr === 'f' => lookup fontDict
   const expansion = fontDict.dict[propValue];
   if (!expansion) {
     throw new Error(`[SWD] Font key "${propValue}" not found in theme.font(...) dict.`);
   }
-  // ex. expansion = "fs[22px] fw[500]"
   const tokens = expansion.split(' ');
-
-  // กันไม่ให้มี screen(...), container(...), pseudo(...) ฯลฯ แทรกอยู่
-  // ถ้าคุณอยากให้ไม่ Error ก็ลบ check นี้ออก
   for (const t of tokens) {
     if (t.includes('(')) {
       throw new Error(`[SWD] Not allowed nested syntax in font expansion: ${t}`);
     }
   }
-
-  // คืน array ของ token ex. ["fs[22px]", "fw[500]"]
   return tokens;
 }
 
-/********************************************
- * parseBaseStyle
- ********************************************/
 export function parseBaseStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const [styleAbbr, propValue] = separateStyleAndProperties(abbrLine);
   if (!styleAbbr) return;
 
-  // ===> ขยาย font ถ้าจำเป็น
   const expansions = expandFontIfNeeded(styleAbbr, propValue);
-
-  // ถ้า expansions ยาวกว่า 1 => loop parseBaseStyle()
   if (expansions.length > 1 || expansions[0] !== `${styleAbbr}[${propValue}]`) {
-    // parse each
     for (const ex of expansions) {
       parseBaseStyle(ex, styleDef);
     }
     return;
   }
 
-  // 1) ถ้าเจอ f[...] => lookup fontDict
   if (styleAbbr === 'f') {
-    // เช่น propValue = 'display-1'
-    const expansion = fontDict.dict[propValue];
-    if (!expansion) {
-      throw new Error(`[SWD] Font key "${propValue}" not found in theme.font(...) dict.`);
-    }
-    // expansion เช่น "fs[22px] fw[500] fm[Sarabun-Bold]"
-    // split => ["fs[22px]", "fw[500]", "fm[Sarabun-Bold]"]
-    const tokens = expansion.split(' ');
-
-    // ตรวจสอบว่าไม่มี token แปลก เช่น screen(...) หรือ container(...)
-    // ถ้าอยากให้ error ถ้าเจอ screen(...) ก็เช็ค token
-    for (const t of tokens) {
-      if (t.startsWith('screen(') || t.startsWith('container(')) {
-        throw new Error(`[SWD] Not allowed screen/container in font expansion: ${t}`);
-      }
-    }
-
-    // แล้ว parseBaseStyle() แต่ละ token
-    for (const t of tokens) {
-      parseBaseStyle(t, styleDef);
-    }
-    return; // อย่าลืม return ไม่ให้ผ่าน logic ปกติข้างล่าง
+    return;
   }
 
-  // 2) ปกติ
   const isVariable = styleAbbr.startsWith('$');
   const realAbbr = isVariable ? styleAbbr.slice(1) : styleAbbr;
 
@@ -153,9 +105,6 @@ export function parseBaseStyle(abbrLine: string, styleDef: IStyleDefinition) {
   }
 }
 
-/********************************************
- * parseScreenStyle / parseContainerStyle
- ********************************************/
 export function parseScreenStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   let inside = abbrLine.slice(openParenIdx + 1, -1).trim();
@@ -197,7 +146,6 @@ export function parseScreenStyle(abbrLine: string, styleDef: IStyleDefinition) {
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
 
-    // ===> ขยาย font
     const expansions = expandFontIfNeeded(abbr, val);
     for (const ex of expansions) {
       const [abbr2, val2] = separateStyleAndProperties(ex);
@@ -214,7 +162,6 @@ export function parseScreenStyle(abbrLine: string, styleDef: IStyleDefinition) {
   styleDef.screens.push({ query: mediaQuery, props: screenProps });
 }
 
-/** container(max-w[600px], bg[red]) */
 export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   let inside = abbrLine.slice(openParenIdx + 1, -1).trim();
@@ -227,7 +174,6 @@ export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition
   let containerPart = inside.slice(0, commaIdx).trim();
   const propsPart = inside.slice(commaIdx + 1).trim();
 
-  // ถ้าเป็น key bp dict
   if (!(containerPart.startsWith('min') || containerPart.startsWith('max'))) {
     const [bp] = containerPart.split(', ');
     if (breakpoints.dict[bp]) {
@@ -256,7 +202,7 @@ export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition
   for (const p of propsList) {
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
-    // ===> ขยาย font
+
     const expansions = expandFontIfNeeded(abbr, val);
     for (const ex of expansions) {
       const [abbr2, val2] = separateStyleAndProperties(ex);
@@ -276,7 +222,6 @@ export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition
   });
 }
 
-/** before(content['xxx']) / after(...) */
 export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   const funcName = abbrLine.slice(0, openParenIdx).trim() as 'before' | 'after';
@@ -289,7 +234,6 @@ export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefini
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
 
-    // ===> ขยาย font
     const expansions = expandFontIfNeeded(abbr, val);
     for (const ex of expansions) {
       const [abbr2, val2] = separateStyleAndProperties(ex);
@@ -306,8 +250,6 @@ export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefini
       }
 
       const finalVal = convertCSSVariable(val2);
-      // NOTE: ถ้าคุณอยากรองรับ varState / varPseudos => ต้องเขียน logic คล้าย state
-      // แต่ตอนนี้ pseudo-element ปกติ => ใส่ result ตรง ๆ
       result[cProp] = finalVal;
     }
   }
@@ -315,10 +257,9 @@ export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefini
   styleDef.pseudos[funcName] = result;
 }
 
-/** hover(bg[red]) / focus(fs[20px]) */
 export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
-  const funcName = abbrLine.slice(0, openParenIdx).trim(); // เช่น "hover"
+  const funcName = abbrLine.slice(0, openParenIdx).trim();
   const inside = abbrLine.slice(openParenIdx + 1, -1).trim();
 
   const propsInState = inside.split(/ (?=[^\[\]]*(?:\[|$))/);
@@ -328,7 +269,6 @@ export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
 
-    // ===> ขยาย font ถ้าจำเป็น
     const expansions = expandFontIfNeeded(abbr, val);
     for (const ex of expansions) {
       const [abbr2, val2] = separateStyleAndProperties(ex);
@@ -344,19 +284,13 @@ export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
       const finalVal = convertCSSVariable(val2);
 
       if (isVariable) {
-        // เก็บ varStates ถ้าไม่มีให้สร้าง
         if (!styleDef.varStates) {
           styleDef.varStates = {};
         }
         if (!styleDef.varStates[funcName]) {
           styleDef.varStates[funcName] = {};
         }
-        // เก็บค่า raw
-        // ตัวอย่าง: styleDef.varStates["hover"]["bg"] = "blue"
         styleDef.varStates[funcName][realAbbr] = finalVal;
-
-        // ใน result ใส่เป็น var(--bg-hover) หรือ var(--bg) ดี?
-        // แนะนำใส่ suffix เพื่อกันสับสน
         result[cProp] = `var(--${realAbbr}-${funcName})`;
       } else {
         result[cProp] = finalVal;
@@ -367,16 +301,12 @@ export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
   styleDef.states[funcName] = result;
 }
 
-/********************************************
- * parseSingleAbbr
- ********************************************/
 export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   if (openParenIdx === -1) {
     parseBaseStyle(abbrLine, styleDef);
     return;
   }
-
   const funcName = abbrLine.slice(0, openParenIdx).trim();
   if (funcName === 'screen') {
     parseScreenStyle(abbrLine, styleDef);
@@ -385,21 +315,12 @@ export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   } else if (funcName === 'before' || funcName === 'after') {
     parsePseudoElementStyle(abbrLine, styleDef);
   } else {
-    // ถือว่าเป็น state
     parseStateStyle(abbrLine, styleDef);
   }
 }
-/********************************************
- * parseClassDefinition
- ********************************************/
+
 export function parseClassDefinition(className: string, abbrStyle: string): IStyleDefinition {
-  const styleDef: IStyleDefinition = {
-    base: {},
-    states: {},
-    screens: [],
-    containers: [],
-    pseudos: {},
-  };
+  const styleDef = createEmptyStyleDef();
 
   const lines = abbrStyle
     .split('\n')
