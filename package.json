@@ -1,28 +1,30 @@
 {
   "name": "styledwindjs",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "type": "module",
-  "main": "./dist/client/index.js",
-  "scripts": {
-    "build:shared": "tsc -p tsconfig.shared.json",
-    "build:client": "tsc -p tsconfig.client.json",
-    "build:server": "tsc -p tsconfig.server.json",
-    "build": "npm run build:shared && npm run build:client && npm run build:server",
-    "test": "echo no test"
-  },
+  "main": "./dist/index.js",
   "exports": {
     ".": {
-      "import": "./dist/client/index.js",
-      "require": "./dist/client/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
     },
     "./server": {
-      "import": "./dist/server/index.js",
-      "require": "./dist/server/index.js"
+      "import": "./dist/server.js",
+      "require": "./dist/server.js"
     }
   },
-  "keywords": [],
-  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build:client": "tsc -p tsconfig.client.json",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:esbuild": "node esbuild.config.js",
+    "build": "npm run build:client && npm run build:server && npm run build:esbuild",
+    "test": "echo no test"
+  },
   "devDependencies": {
+    "esbuild": "^0.17.0",
     "typescript": "^4.9.5"
   }
 }

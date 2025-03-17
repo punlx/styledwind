@@ -1,14 +1,15 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": "src", // ให้ต้นทางเป็น src ทั้งหมด
-    "outDir": "dist/client" // ไฟล์คอมไพล์ไปที่ dist/client
-  },
-  "include": [
-    "src/client/**/*", // รวม client
-    "src/shared/**/*" // รวม shared
-  ],
-  "exclude": [
-    "src/server" // ไม่รวม server
-  ]
-}
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+      "rootDir": "src",
+      "outDir": "dist"
+    },
+    "include": [
+      "src/client/**/*",
+      "src/shared/**/*"
+    ],
+    "exclude": [
+      "src/server"
+    ]
+  }
+  
