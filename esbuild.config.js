@@ -13,7 +13,7 @@ async function runBuild() {
 
   // 2) bundle/minify ฝั่ง server => dist/server.js
   await build({
-    entryPoints: ['dist/server/index.js'],
+    entryPoints: ['dist/server/server.js'],
     outfile: 'dist/server.js',
     bundle: true,
     minify: true,
