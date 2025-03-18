@@ -1,5 +1,5 @@
 // src/shared/hash.ts
-const AD_REPLACER_R = /(a)(d)/gi;
+// เอาออกใน release 2 (ใช้ scope แทน)
 const CHARS_LENGTH = 52;
 const SEED = 5381;
 
@@ -16,7 +16,7 @@ function generateAlphabeticName(code: number): string {
     x = (x / CHARS_LENGTH) | 0;
   }
   name = getAlphabeticChar(x % CHARS_LENGTH) + name;
-  return name.replace(AD_REPLACER_R, '$1-$2');
+  return name;
 }
 
 function hash(str: string): number {

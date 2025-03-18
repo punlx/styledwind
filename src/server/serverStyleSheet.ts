@@ -1,29 +1,40 @@
-// src/server/serverStyleSheet.ts
-import { IStyleDefinition } from '../../src/shared/parseStyles';
-import { buildCssText } from '../shared/buildCssText';
+// /src/server/serverSheet.ts
 
+import { IStyleDefinition } from '../shared/parseStyles';
+import { buildCssText } from '../shared/buildCssText';
+import { clearServerSheetInstance } from './ServerStyleSheetInstance';
+
+/**
+ * คลาสเลียนแบบแนวทาง styled-components:
+ * - เก็บ styleDef ผ่าน insertCSSRules (ขณะ SSR)
+ * - แปลงทั้งหมดเป็น <style> ผ่าน getStyleTags()
+ */
 export class ServerStyleSheet {
   private styleDefMap = new Map<string, IStyleDefinition>();
 
+  /**
+   * เก็บข้อมูล style (ระหว่าง SSR) แทนการ insertRule ใน DOM
+   */
   public insertCSSRules(displayName: string, styleDef: IStyleDefinition) {
-    // Note: ถ้าอยาก transformVariables บน server ให้ copy logic จาก client
-    // หรือไม่ transform -> แล้วให้ client transform ภายหลัง
+    // ถ้าต้องการ transformVariables บน server ก็ใส่ได้ (หรือให้ client handle ก็ได้)
     this.styleDefMap.set(displayName, styleDef);
   }
 
-  public getStyleTags(): string {
+  /**
+   * สร้าง <style> รวม CSS ทั้งหมด สำหรับฝังใน HTML ตอน SSR
+   */
+  public getCSSText(): string {
     let css = '';
     for (const [displayName, styleDef] of this.styleDefMap.entries()) {
       css += buildCssText(displayName, styleDef);
     }
-    return `<style data-styledwind="ssr">${css}</style>`;
+    clearServerSheetInstance();
+    return css;
   }
 
-  public collectStyles(app: any) {
-    // ทำเหมือน styled-components: user จะเรียก sheet.collectStyles(<App/>)
-    return app;
-  }
-
+  /**
+   * ล้างค่าใน map กรณีต้องการ reuse sheet instance
+   */
   public seal() {
     this.styleDefMap.clear();
   }

@@ -19,7 +19,6 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
   const text = template[0];
   const regex = /\.[\w-]+\s*\{[^}]*\}/g;
   const matches = text.match(regex);
-
   const resultObj: any = {};
 
   if (matches) {
@@ -28,6 +27,7 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       const rawClass = m.slice(0, idx).trim();
       const abbrBody = m.slice(idx + 1, -1).trim();
       const className = rawClass.startsWith('.') ? rawClass.slice(1) : rawClass;
+
       const displayName = processOneClass(className, abbrBody);
       resultObj[className] = displayName;
     }

@@ -4,6 +4,7 @@ import { IStyleDefinition } from '../shared/parseStyles';
 import { transformVariables } from './transFormVariables'; // ย้ายส่วนแยก logic transformVariables แยกเป็นไฟล์ได้
 import { insertedRulesMap, IInsertedRules } from './constant';
 import { buildCssText } from '../shared/buildCssText';
+import { isServer } from '../server/constant';
 // เก็บสไตล์ที่รอ insert
 const pendingStyleDefs = new Map<string, IStyleDefinition>();
 let pending = false;
@@ -36,7 +37,6 @@ function flushPendingStyles() {
     allRules.push(...ruleList);
   }
 
-  // insert rule ทีละอัน
   if (constructedSheet) {
     allRules.forEach((rule) => {
       try {
@@ -69,7 +69,8 @@ function flushPendingStyles() {
 
 /** เรียกด้วย requestAnimationFrame หรือ setTimeout เพื่อ debounce การ flush */
 function scheduleFlush() {
-  // ขอตัดส่วน SSR ออก เพราะเราจะให้ไฟล์นี้ทำงาน เฉพาะฝั่ง CSR
+  if (isServer) return;
+  // ขอตัดส่วน SSR ออก เพราะเราจะให้ไฟล์นี้ทำงาน เฉพาะตอน hydrate เสร็จแล้ว
   requestAnimationFrame(flushPendingStyles);
 }
 /**
