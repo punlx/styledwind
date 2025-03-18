@@ -1,3 +1,4 @@
+// src/client/styled.ts
 import { parseClassDefinition } from '../shared/helpers';
 import { generateClassId } from '../shared/hash';
 import { insertCSSRules } from './insertCSSRules';
