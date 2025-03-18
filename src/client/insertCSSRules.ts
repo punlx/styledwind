@@ -1,175 +1,108 @@
 // src/client/insertCSSRules.ts
-
 import { constructedSheet, fallbackStyleElement } from './constant';
-import { IStyleDefinition } from '../shared/helpers'; // เปลี่ยนเส้นทาง import
-
-const styleDefMap = new Map<string, IStyleDefinition>();
-
+import { IStyleDefinition } from '../shared/parseStyles';
+import { transformVariables } from './transFormVariables'; // ย้ายส่วนแยก logic transformVariables แยกเป็นไฟล์ได้
+import { insertedRulesMap, IInsertedRules } from './constant';
+import { buildCssText } from '../shared/buildCssText';
+// เก็บสไตล์ที่รอ insert
+const pendingStyleDefs = new Map<string, IStyleDefinition>();
 let pending = false;
 let dirty = false;
 
-function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
-  let cssText = '';
-
-  if (styleDef.rootVars) {
-    let varBlock = '';
-    for (const varName in styleDef.rootVars) {
-      varBlock += `${varName}:${styleDef.rootVars[varName]};`;
-    }
-    if (varBlock) {
-      cssText += `:root{${varBlock}}`;
-    }
-  }
-
-  if (Object.keys(styleDef.base).length > 0) {
-    let baseProps = '';
-    for (const prop in styleDef.base) {
-      baseProps += `${prop}:${styleDef.base[prop]};`;
-    }
-    cssText += `.${displayName}{${baseProps}}`;
-  }
-
-  for (const state in styleDef.states) {
-    const obj = styleDef.states[state];
-    let props = '';
-    for (const p in obj) {
-      props += `${p}:${obj[p]};`;
-    }
-    cssText += `.${displayName}:${state}{${props}}`;
-  }
-
-  for (const scr of styleDef.screens) {
-    let props = '';
-    for (const p in scr.props) {
-      props += `${p}:${scr.props[p]};`;
-    }
-    cssText += `@media only screen and ${scr.query}{.${displayName}{${props}}}`;
-  }
-
-  for (const ctnr of styleDef.containers) {
-    let props = '';
-    for (const p in ctnr.props) {
-      props += `${p}:${ctnr.props[p]};`;
-    }
-    cssText += `@container ${ctnr.query}{.${displayName}{${props}}}`;
-  }
-
-  if (styleDef.pseudos.before) {
-    let beforeProps = '';
-    for (const p in styleDef.pseudos.before) {
-      beforeProps += `${p}:${styleDef.pseudos.before[p]};`;
-    }
-    cssText += `.${displayName}::before{${beforeProps}}`;
-  }
-  if (styleDef.pseudos.after) {
-    let afterProps = '';
-    for (const p in styleDef.pseudos.after) {
-      afterProps += `${p}:${styleDef.pseudos.after[p]};`;
-    }
-    cssText += `.${displayName}::after{${afterProps}}`;
-  }
-
-  return cssText;
+/**
+ * ตัวช่วย: แยก string (ที่อาจมีหลาย block) ออกเป็น rule ย่อย ๆ
+ * เพื่อจะนำไปเรียก insertRule ทีละ rule
+ * (วิธีง่าย ๆ: split ด้วย regex จับ pattern "อะไรก็ได้จนเจอ '}'")
+ */
+function splitCssIntoIndividualRules(cssText: string): string[] {
+  // จับทุกอย่างที่ลงท้ายด้วย '}'
+  const ruleMatches = cssText.match(/[^}]+}/g) || [];
+  return ruleMatches.map((r) => r.trim());
 }
 
 /**
- * doRebuild:
- * - รวม CSS จาก styleDefMap => ใส่ลง constructedSheet หรือ fallback
+ * ฟังก์ชันหลักเรียกแบบ debounce:
+ * - สร้าง CSS เฉพาะ batch ที่สะสมอยู่ใน pendingStyleDefs
+ * - ใช้ insertRule ทีละ rule (หรือจะ replaceSync ก็ได้)
  */
-function doRebuild() {
-  let newGlobalCss = '';
-  for (const [displayName, styleDef] of styleDefMap.entries()) {
-    newGlobalCss += buildCssText(displayName, styleDef);
+function flushPendingStyles() {
+  // สร้าง buffer ไว้เก็บ rule list ทั้งหมด
+  const allRules: string[] = [];
+
+  // loop เอา styleDef แต่ละคลาส มาสร้าง cssText แล้วแตกเป็น rule ย่อย
+  for (const [displayName, styleDef] of pendingStyleDefs.entries()) {
+    const cssText = buildCssText(displayName, styleDef);
+    const ruleList = splitCssIntoIndividualRules(cssText);
+    allRules.push(...ruleList);
   }
 
-  // --- ใส่ลง constructedSheet หรือ fallback ---
-  // constructedSheet = null ตอน SSR => เช็ค
+  // insert rule ทีละอัน
   if (constructedSheet) {
-    // ถ้า browser รองรับ .replaceSync
-    if ('replaceSync' in constructedSheet) {
-      constructedSheet.replaceSync(newGlobalCss);
-    } else if (fallbackStyleElement) {
-      fallbackStyleElement.textContent = newGlobalCss;
-    }
+    allRules.forEach((rule) => {
+      try {
+        constructedSheet!.insertRule(rule, constructedSheet!.cssRules.length);
+      } catch (err) {
+        console.warn('insertRule error:', rule, err);
+      }
+    });
   } else if (fallbackStyleElement) {
-    fallbackStyleElement.textContent = newGlobalCss;
+    const fallbackSheet = fallbackStyleElement.sheet as CSSStyleSheet;
+    allRules.forEach((rule) => {
+      try {
+        fallbackSheet.insertRule(rule, fallbackSheet.cssRules.length);
+      } catch (err) {
+        console.warn('fallback insertRule error:', rule, err);
+      }
+    });
   }
 
+  // เคลียร์
+  pendingStyleDefs.clear();
   pending = false;
+
+  // ถ้ามี dirty = true แสดงว่ามี style เพิ่มเข้ามาระหว่างที่กำลัง flush → เรียกอีกครั้ง
   if (dirty) {
-    rebuildGlobalCSSDebounced();
+    dirty = false;
+    scheduleFlush(); // เรียกตัวเองซ้ำ
   }
 }
 
+/** เรียกด้วย requestAnimationFrame หรือ setTimeout เพื่อ debounce การ flush */
+function scheduleFlush() {
+  // ขอตัดส่วน SSR ออก เพราะเราจะให้ไฟล์นี้ทำงาน เฉพาะฝั่ง CSR
+  requestAnimationFrame(flushPendingStyles);
+}
 /**
- * rebuildGlobalCSSDebounced():
- * - ถ้าอยู่บน client => ใช้ requestAnimationFrame
- * - ถ้าเป็น SSR => ใช้ fallback (call ทันที หรือ setTimeout 0)
+ * ฟังก์ชันหลัก: insertCSSRules()
+ * - เปลี่ยนจากการ "rebuild ทั้งหมด" มาเป็น "insert rule" รายคลาส
+ * - มีการป้องกันซ้ำด้วย insertedRulesMap (กันการสร้าง class เดิมซ้ำ)
  */
-function rebuildGlobalCSSDebounced() {
-  if (pending) {
-    dirty = true;
+/**
+ * insertCSSRules (แบบ batch + debounce)
+ */
+export function insertCSSRules(displayName: string, styleDef: IStyleDefinition) {
+  // กันซ้ำ: ถ้ามีอยู่แล้วก็ return
+  if (insertedRulesMap.has(displayName)) {
     return;
   }
-  pending = true;
-  dirty = false;
 
-  // --- เช็คถ้าอยู่บน client มี requestAnimationFrame ---
-  if (typeof window !== 'undefined' && typeof requestAnimationFrame !== 'undefined') {
-    requestAnimationFrame(() => {
-      doRebuild();
-    });
-  } else {
-    // --- SSR or no requestAnimationFrame => fallback ---
-    // เรียก doRebuild() ทันที (หรือ setTimeout 0)
-    doRebuild();
-  }
-}
-
-function transformVariables(styleDef: IStyleDefinition, displayName: string) {
-  const idx = displayName.indexOf('_');
-  if (idx < 0) return;
-  const hashPart = displayName.slice(idx + 1);
-
-  styleDef.rootVars = styleDef.rootVars || {};
-
-  if (styleDef.varBase) {
-    for (const varName in styleDef.varBase) {
-      const rawValue = styleDef.varBase[varName];
-      const finalVarName = `--${varName}-${hashPart}`;
-      styleDef.rootVars[finalVarName] = rawValue;
-
-      for (const cssProp in styleDef.base) {
-        styleDef.base[cssProp] = styleDef.base[cssProp].replace(
-          `var(--${varName})`,
-          `var(${finalVarName})`
-        );
-      }
-    }
-  }
-
-  if (styleDef.varStates) {
-    for (const stName in styleDef.varStates) {
-      // แก้ type
-      const varsOfThatState: Record<string, string> = styleDef.varStates[stName] || {};
-      for (const varName in varsOfThatState) {
-        const rawValue = varsOfThatState[varName];
-        const finalVarName = `--${varName}-${stName}-${hashPart}`;
-        styleDef.rootVars[finalVarName] = rawValue;
-
-        for (const cssProp in styleDef.states[stName]) {
-          styleDef.states[stName][cssProp] = styleDef.states[stName][cssProp].replace(
-            `var(--${varName}-${stName})`,
-            `var(${finalVarName})`
-          );
-        }
-      }
-    }
-  }
-}
-
-export function insertCSSRules(displayName: string, styleDef: IStyleDefinition) {
+  // transform variable
   transformVariables(styleDef, displayName);
-  styleDefMap.set(displayName, styleDef);
-  rebuildGlobalCSSDebounced();
+
+  // เก็บลง pendingStyleDefs
+  pendingStyleDefs.set(displayName, styleDef);
+
+  // Mark inserted
+  const inserted: IInsertedRules = { displayName };
+  insertedRulesMap.set(displayName, inserted);
+
+  // Schedule flush
+  if (pending) {
+    // มีการรอ flush อยู่แล้ว → set dirty
+    dirty = true;
+  } else {
+    pending = true;
+    dirty = false;
+    scheduleFlush();
+  }
 }

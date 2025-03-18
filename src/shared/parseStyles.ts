@@ -320,16 +320,15 @@ export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   }
 }
 
-export function parseClassDefinition(className: string, abbrStyle: string): IStyleDefinition {
+export function parseClassDefinition(abbrStyle: string): IStyleDefinition {
   const styleDef = createEmptyStyleDef();
-
-  const lines = abbrStyle
+  const rowsAbbr = abbrStyle
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
 
-  for (const line of lines) {
-    parseSingleAbbr(line, styleDef);
+  for (const abbr of rowsAbbr) {
+    parseSingleAbbr(abbr, styleDef);
   }
 
   return styleDef;

@@ -1,9 +1,15 @@
-// src/server/utils
-import { IStyleDefinition } from '../../src/shared/helpers';
+// src/shared/buildCssText.ts
 
-export function buildCssTextServer(displayName: string, styleDef: IStyleDefinition) {
+import { IStyleDefinition } from './parseStyles';
+
+/**
+ * ฟังก์ชันเดิมที่ใช้สร้าง CSS text ของ class เดียว
+ * (จะคืนค่าเป็นสตริง .className { ... } + pseudo + @media ... รวมเป็นก้อนเดียว)
+ */
+export function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
   let cssText = '';
 
+  // 1) root vars
   if (styleDef.rootVars) {
     let varBlock = '';
     for (const varName in styleDef.rootVars) {
@@ -14,6 +20,7 @@ export function buildCssTextServer(displayName: string, styleDef: IStyleDefiniti
     }
   }
 
+  // 2) base
   if (Object.keys(styleDef.base).length > 0) {
     let baseProps = '';
     for (const prop in styleDef.base) {
@@ -22,6 +29,7 @@ export function buildCssTextServer(displayName: string, styleDef: IStyleDefiniti
     cssText += `.${displayName}{${baseProps}}`;
   }
 
+  // 3) states
   for (const state in styleDef.states) {
     const obj = styleDef.states[state];
     let props = '';
@@ -31,6 +39,7 @@ export function buildCssTextServer(displayName: string, styleDef: IStyleDefiniti
     cssText += `.${displayName}:${state}{${props}}`;
   }
 
+  // 4) screens (@media)
   for (const scr of styleDef.screens) {
     let props = '';
     for (const p in scr.props) {
@@ -39,6 +48,7 @@ export function buildCssTextServer(displayName: string, styleDef: IStyleDefiniti
     cssText += `@media only screen and ${scr.query}{.${displayName}{${props}}}`;
   }
 
+  // 5) containers (@container)
   for (const ctnr of styleDef.containers) {
     let props = '';
     for (const p in ctnr.props) {
@@ -47,6 +57,7 @@ export function buildCssTextServer(displayName: string, styleDef: IStyleDefiniti
     cssText += `@container ${ctnr.query}{.${displayName}{${props}}}`;
   }
 
+  // 6) pseudos (::before / ::after)
   if (styleDef.pseudos.before) {
     let beforeProps = '';
     for (const p in styleDef.pseudos.before) {

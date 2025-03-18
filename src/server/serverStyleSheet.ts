@@ -1,6 +1,6 @@
 // src/server/serverStyleSheet.ts
-import { IStyleDefinition } from '../../src/shared/helpers';
-import { buildCssTextServer } from './utils';
+import { IStyleDefinition } from '../../src/shared/parseStyles';
+import { buildCssText } from '../shared/buildCssText';
 
 export class ServerStyleSheet {
   private styleDefMap = new Map<string, IStyleDefinition>();
@@ -14,7 +14,7 @@ export class ServerStyleSheet {
   public getStyleTags(): string {
     let css = '';
     for (const [displayName, styleDef] of this.styleDefMap.entries()) {
-      css += buildCssTextServer(displayName, styleDef);
+      css += buildCssText(displayName, styleDef);
     }
     return `<style data-styledwind="ssr">${css}</style>`;
   }

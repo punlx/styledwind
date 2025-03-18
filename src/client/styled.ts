@@ -1,5 +1,6 @@
 // src/client/styled.ts
 
+import { isServer } from '../server/constant';
 import { processOneClass } from './processOneClass';
 
 export type StyledResult<T> = {
@@ -26,7 +27,6 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       const idx = m.indexOf('{');
       const rawClass = m.slice(0, idx).trim();
       const abbrBody = m.slice(idx + 1, -1).trim();
-
       const className = rawClass.startsWith('.') ? rawClass.slice(1) : rawClass;
       const displayName = processOneClass(className, abbrBody);
       resultObj[className] = displayName;
@@ -55,7 +55,15 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
           if (val.includes('--')) {
             val = val.replace(/(--[\w-]+)/g, 'var($1)');
           }
-          document.documentElement.style.setProperty(finalVar, val);
+
+          if (isServer) {
+            throw new Error(
+              `[SWD-ERR] Attempted to call .set() in SSR environment. ` +
+                `This function must be called on the client side where document is available.`
+            );
+          } else {
+            document.documentElement.style.setProperty(finalVar, val);
+          }
         }
       },
     };
