@@ -174,11 +174,25 @@ function processClassBlocks(
   return resultMap;
 }
 
+type InterimResult<T> = {
+  [K in keyof T]: string;
+} & {
+  // เปิดช่องให้มี property ชื่ออื่น (เป็น string)
+  [key: string]: string | undefined;
+} & {
+  // เพิ่ม get(...) ได้
+  get?: <K2 extends keyof T>(
+    classKey: K2
+  ) => {
+    set: (props: Partial<Record<string, string>>) => void;
+  };
+};
+
 /**
  * attachGetMethod(resultObj):
  * - ใส่เมธอด resultObj.get(...).set(...) เพื่อปรับเปลี่ยนค่า variable runtime
  */
-function attachGetMethod<T extends Record<string, any>>(resultObj: Record<string, string>) {
+function attachGetMethod<T extends Record<string, any>>(resultObj: InterimResult<T>): void {
   resultObj.get = function <K2 extends keyof T>(classKey: K2) {
     return {
       set: (props: Partial<Record<string, string>>) => {
@@ -325,24 +339,3 @@ export function styled<T extends Record<string, string[]>>(
   // 9) return result
   return resultObj as StyledResult<T>;
 }
-
-export const appCss = styled<{ box: ['$bg']; box2: ['$bg']; boxwrap: [''] }>`
-	@scope app
-	@bind bokwrap .box .box2
-
-	.box {
-		$bg[red]
-		c[red]
-		d[block]
-		f[display-1]
-		hover(bg[blue] c[white])
-		after(ct['after'] bg[bluw] c[white])
-		container(max-w[600px], d[flex] jc[center])
-		screen(sm, d[flex] jc[center])
-	}
-
-	.box2 {
-		$bg[red]
-		c[white]
-	}
-`;
