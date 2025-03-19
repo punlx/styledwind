@@ -1,5 +1,5 @@
 // src/client/theme.ts
-import { breakpoints, fontDict } from '../../src/shared/constant';
+import { abbrMap, breakpoints, fontDict } from '../../src/shared/constant';
 import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
 
@@ -88,20 +88,23 @@ function parseKeyframeAbbr(
     let isVar = false;
     if (styleAbbr.startsWith('$')) {
       isVar = true;
-      styleAbbr = styleAbbr.slice(1);
+      styleAbbr = styleAbbr.slice(1); // ตัด '$'
     }
 
-    // ในตัวอย่างนี้ยังไม่ได้ map prop => ใช้ styleAbbr เป็น key ตรงๆ
-    // ถ้าอยากเชื่อมกับ abbrMap ก็สามารถ
-    const finalProp = styleAbbr;
+    // เพิ่มการ map abbr -> CSS property (เช่น bg -> background-color, c -> color)
+    const mappedProp = abbrMap[styleAbbr as keyof typeof abbrMap] || styleAbbr;
 
     if (isVar) {
+      // คือ case $bg หรือ $c
       const finalVarName = `--${styleAbbr}-${keyframeName}-${blockLabel.replace('%', '')}`;
-      cssText += `${finalProp}:var(${finalVarName});`;
+      // เปลี่ยนให้ใช้ mappedProp ด้วย
+      cssText += `${mappedProp}:var(${finalVarName});`;
+
       varMap[styleAbbr] = finalVarName;
       defaultVars[finalVarName] = propVal;
     } else {
-      cssText += `${finalProp}:${propVal};`;
+      // ต้องเปลี่ยนเป็น mappedProp เพื่อให้กลายเป็น background-color หรือ color
+      cssText += `${mappedProp}:${propVal};`;
     }
   }
 
