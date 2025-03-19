@@ -223,39 +223,64 @@ export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition
   });
 }
 
+/**
+ * pseudoName = "before" หรือ "after"
+ * abbrLine อาจเป็น something แบบ "after(ct['after'] $bg[yellow] c[blue])"
+ */
 export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
-  const funcName = abbrLine.slice(0, openParenIdx).trim() as 'before' | 'after';
+  const pseudoName = abbrLine.slice(0, openParenIdx).trim() as 'before' | 'after';
   const inside = abbrLine.slice(openParenIdx + 1, -1).trim();
 
+  // array ของ abbr เช่น ["ct['after']", "$bg[yellow]", "c[blue]"]
   const propsInPseudo = inside.split(/ (?=[^\[\]]*(?:\[|$))/);
-  const result: Record<string, string> = {};
+
+  // ผลลัพธ์ที่เป็น props ธรรมดา (เช่น { content: 'after', background-color: 'yellow' })
+  const result: Record<string, string> = styleDef.pseudos[pseudoName] || {};
+
+  // ถ้าระบบรองรับ varPseudos:
+  styleDef.varPseudos = styleDef.varPseudos || {};
+  styleDef.varPseudos[pseudoName] = styleDef.varPseudos[pseudoName] || {};
 
   for (const p of propsInPseudo) {
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
 
-    const expansions = expandFontIfNeeded(abbr, val);
+    // ถ้าโค้ดเราใช้ expandFontIfNeeded() ก็อาจเรียกเหมือน parseBaseStyle
+    // แต่สมมติสำหรับ simplicity:
+    const expansions = [`${abbr}[${val}]`];
+
     for (const ex of expansions) {
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
 
+      // เช็คว่าเป็น $variable หรือไม่
       const isVariable = abbr2.startsWith('$');
       const realAbbr = isVariable ? abbr2.slice(1) : abbr2;
+
+      // map abbr -> CSS prop
       const cProp = abbrMap[realAbbr as keyof typeof abbrMap];
       if (!cProp) {
-        throw new Error(`"${realAbbr}" not found in abbrMap for pseudo-element ${funcName}.`);
-      }
-      if (realAbbr === 'content' && val2 === '') {
-        throw new Error(`Pseudo-element content[] must not be empty.`);
+        throw new Error(`"${realAbbr}" not found in abbrMap for pseudo-element ${pseudoName}.`);
       }
 
+      // แปลงค่า (ถ้ามี --var)
       const finalVal = convertCSSVariable(val2);
-      result[cProp] = finalVal;
+
+      if (isVariable) {
+        // 1) เก็บใน varPseudos
+        styleDef.varPseudos[pseudoName]![realAbbr] = finalVal;
+        // 2) ส่วน result ใส่ placeholder var(--xxx-pseudo) ไว้ก่อน
+        //    พอ transformVariables จะมา replace var(--bg-after) เป็น var(--bg-app_box-after)
+        result[cProp] = `var(--${realAbbr}-${pseudoName})`;
+      } else {
+        // case ไม่ใช่ $variable -> ใส่ค่าตรง ๆ
+        result[cProp] = finalVal;
+      }
     }
   }
 
-  styleDef.pseudos[funcName] = result;
+  styleDef.pseudos[pseudoName] = result;
 }
 
 export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {

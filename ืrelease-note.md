@@ -5,29 +5,19 @@
 **release 2**: new features @scope, @mix, @bind
 
 ```tsx
-export const css = styled<{ base: ['$c']; box1: []; box2: []; box: [] }>`
-	@scope:app // สร้าง scope ให้แต่ละ styled *เปลียนไม่ใช้ hash แล้ว เพราะติดปัญหาใน next เรื่อง mismatch
-	// เมื่อแสดงผลก็จะได้ .app_base, .app_box1, .app_box2 ทำให้ debug ง่ายขึ้น
+export const appCss = styled<{ box: [] }>`
+	@scope app // done
 
-	.base {
-		$c[red]
-		bg[blue]
+	.box {
+		@use boxd // <--todo
+		bg[#f00]
+		c[#fff]
+		hover(bg[#0f0] c[#000])
 	}
-
-	.box1 {
-		@mix[.base] // 	เอา style จาก .base มา mix ใน .box1 และตัวแปร $c จะอยู่ในสโคปของ .box1 เท่านั้น
-		// intellisense update: เอา @mix ขึ้นบนสุดของ .box1 { ... }
-		jc[center]
-	}
-
-	.box2 {
-		@mix[.base] // 	เอา style จาก .base มา mix ใน .box2 และตัวแปร $c จะอยู่ในสโคปของ .box2 เท่านั้น
-		// intellisense update: เอา @mix ขึ้นบนสุดของ .box2 { ... }
-		jc[center]
-	}
-
-	@bind:box[.box1 .box2] // ทำการสร้าง object {"box":".box1_hash .box2_hash"} เพื่อใช้งานได้สะดวกมากขึ้น
-    // intellisense update: เอา @bind ล่างสุดของ styled
+	
+	
+	@bind boxAll .box // <-- in progress
+	@mix boxd .box5 .box6 // <- todo
 `;
 ```
 

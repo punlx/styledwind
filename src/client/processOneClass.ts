@@ -1,20 +1,23 @@
-// /src/client/processOneClass.ts
+// processOneClass.ts
 
-import { parseClassDefinition } from '../shared/parseStyles';
-import { generateClassId } from '../shared/hash';
+import { parseClassDefinition, IStyleDefinition } from '../shared/parseStyles';
 import { insertedRulesMap, IInsertedRules } from './constant';
 import { insertCSSRules } from './insertCSSRules';
 import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
-import { IStyleDefinition } from '../shared/parseStyles';
-import { transformVariables } from './transFormVariables';
+import { transformVariables } from './transformVariables';
 
 /**
- * parse + insert (หรือ collect) rule ของ 1 คลาส
+ * processOneClass:
+ * - parse abbrBody -> styleDef
+ * - สร้าง displayName = scopeName_className
+ * - transformVariables (ใช้ --varName-scopeName_className)
+ * - insert DOM หรือ SSR
+ * - กันซ้ำใน insertedRulesMap ด้วย key = scopeName:className:body
  */
-export function processOneClass(className: string, abbrStyle: string): string {
+export function processOneClass(className: string, abbrStyle: string, scopeName: string): string {
   // สร้าง key กันซ้ำ
-  const key = `${className}:${abbrStyle}`;
+  const key = `${scopeName}:${className}:${abbrStyle}`;
   const cached = insertedRulesMap.get(key);
   if (cached) {
     return cached.displayName;
@@ -23,18 +26,17 @@ export function processOneClass(className: string, abbrStyle: string): string {
   // parse abbr -> styleDef
   const styleDef: IStyleDefinition = parseClassDefinition(abbrStyle);
 
-  // generate uniqueId + displayName
-  const uniqueId = generateClassId(key);
-  const displayName = `${className}_${uniqueId}`;
+  // displayName = scopeName_className
+  const displayName = `${scopeName}_${className}`;
+
   // transform variable
-  transformVariables(styleDef, displayName);
-  // แยกว่า SSR หรือ CSR
+  transformVariables(styleDef, scopeName, className);
+
+  // แยก SSR หรือ CSR
   if (isServer) {
-    // SSR path
     const sheet = serverStyleSheet();
     sheet.insertCSSRules(displayName, styleDef);
   } else {
-    // CSR path -> insert DOM
     insertCSSRules(displayName, styleDef);
   }
 

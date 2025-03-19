@@ -78,8 +78,6 @@ function parseKeyframeAbbr(
   const varMap: Record<string, string> = {};
   const defaultVars: Record<string, string> = {};
 
-  let baseStringForHash = `${keyframeName}${blockLabel}${abbrBody}`;
-
   while ((match = regex.exec(abbrBody)) !== null) {
     let styleAbbr = match[1];
     let propVal = match[2];
@@ -99,8 +97,7 @@ function parseKeyframeAbbr(
     const finalProp = styleAbbr;
 
     if (isVar) {
-      const hashStr = generateClassId(baseStringForHash + styleAbbr + propVal);
-      const finalVarName = `--${styleAbbr}-${keyframeName}-${hashStr}`;
+      const finalVarName = `--${styleAbbr}-${keyframeName}-${blockLabel.replace('%', '')}`;
       cssText += `${finalProp}:var(${finalVarName});`;
       varMap[styleAbbr] = finalVarName;
       defaultVars[finalVarName] = propVal;
