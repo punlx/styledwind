@@ -128,7 +128,10 @@ function extractScope(directives: IParsedDirective[]): string {
  */
 function ensureScopeUnique(scopeName: string) {
   if (usedScopes.has(scopeName)) {
-    throw new Error(`[SWD-ERR] scope "${scopeName}" is already used in another file.`);
+    console.warn(
+      `[SWD-ERR] scope "${scopeName}" is already used in another file. Refresh to check if it is a HMR error.`
+    );
+    // throw new Error(`[SWD-ERR] scope "${scopeName}" is already used in another file.`);
   }
   usedScopes.add(scopeName);
 }
@@ -159,9 +162,12 @@ function processClassBlocks(
     // 2) กันซ้ำข้ามไฟล์ (global)
     const scopeClassKey = `${scopeName}:${clsName}`;
     if (usedScopeClasses.has(scopeClassKey)) {
-      throw new Error(
-        `[SWD-ERR] Class ".${clsName}" in scope "${scopeName}" is already used in another file.`
+      console.warn(
+        `[SWD-ERR] Class ".${clsName}" in scope "${scopeName}" is already used in another file. Refresh to check if it is a HMR error.`
       );
+      // throw new Error(
+      //   `[SWD-ERR] Class ".${clsName}" in scope "${scopeName}" is already used in another file.`
+      // );
     }
     usedScopeClasses.add(scopeClassKey);
 
