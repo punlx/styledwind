@@ -1,4 +1,4 @@
-// transformVariables.ts
+// src/client/transformVariables.ts
 
 import { IStyleDefinition } from '../shared/parseStyles';
 

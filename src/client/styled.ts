@@ -1,12 +1,11 @@
-// styled.ts
+// src/client/styled.ts
 
-import { isServer } from '../server/constant';
 import { processOneClass } from './processOneClass';
 import { parseDirectivesAndClasses, IParsedDirective } from './parseDirectives';
+
 ////////////////////
 // Helper Functions
 ////////////////////
-
 /**
  * แยก scope กับ cls ออกจาก displayName เช่น "app_box"
  * return { scope: "app", cls: "box" }
@@ -27,21 +26,18 @@ function parseDisplayName(displayName: string): { scope: string; cls: string } {
  * ถ้าไม่มี dash เช่น "$bg" => { baseVarName: "bg", suffix: "" }
  */
 function parseVariableAbbr(abbr: string): { baseVarName: string; suffix: string } {
-  // ตัวแปร abbr เช่น '$bg-hover'
   if (!abbr.startsWith('$')) {
     throw new Error(`[SWD-ERR] Only $variable is supported. Got "${abbr}"`);
   }
-
-  const varNameFull = abbr.slice(1); // "bg-hover" หรือ "bg"
+  const varNameFull = abbr.slice(1); // เช่น "bg-hover"
   let baseVarName = varNameFull;
   let suffix = '';
 
   const dashIdx = varNameFull.lastIndexOf('-');
   if (dashIdx > 0) {
-    baseVarName = varNameFull.slice(0, dashIdx); // "bg"
-    suffix = varNameFull.slice(dashIdx + 1); // "hover"
+    baseVarName = varNameFull.slice(0, dashIdx);
+    suffix = varNameFull.slice(dashIdx + 1);
   }
-
   return { baseVarName, suffix };
 }
 
@@ -56,11 +52,10 @@ function buildVariableName(
   cls: string,
   suffix: string
 ): string {
-  // --<baseVarName>-<scope>_<cls>-(suffix?)
   if (!suffix) {
-    return `--${baseVarName}-${scope}_${cls}`; // เช่น --bg-app_box
+    return `--${baseVarName}-${scope}_${cls}`;
   }
-  return `--${baseVarName}-${scope}_${cls}-${suffix}`; // เช่น --bg-app_box-hover
+  return `--${baseVarName}-${scope}_${cls}-${suffix}`;
 }
 
 /**
@@ -68,11 +63,11 @@ function buildVariableName(
  *   - pendingVars เก็บ { [finalVarName]: value }
  *   - rafScheduled ไว้กันการ schedule rAF ซ้ำ
  */
-const pendingVars: Record<string, string> = {}; // เก็บ finalVar -> value
+const pendingVars: Record<string, string> = {};
 let rafScheduled = false;
 
 function flushVars() {
-  // loop เซ็ตทั้งหมดที่ค้างอยู่
+  // เซ็ต property ทั้งหมดลง DOM
   for (const [varName, val] of Object.entries(pendingVars)) {
     document.documentElement.style.setProperty(varName, val);
   }
@@ -108,9 +103,8 @@ export type StyledResult<T> = {
 
 /**
  * ฟังก์ชันหลัก styled()
- * - parse directive (โดยเฉพาะ @scope) + parse block .class { ... }
+ * - parse directive (โดยเฉพาะ @scope, @bind) + parse block .class { ... }
  * - สร้างคลาสตาม scopeName_className
- * - เก็บลง map ใน processOneClass เพื่อ insert CSS
  * - return object สำหรับเข้าถึงชื่อคลาส + .get(...).set(...) แก้ตัวแปร
  */
 export function styled<T extends Record<string, any> = Record<string, never>>(
@@ -120,6 +114,7 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
 
   // 1) เรียก parser เพื่อแยก directive + class blocks
   const { directives, classBlocks } = parseDirectivesAndClasses(text);
+
   // 2) หา @scope
   let scopeName: string | null = null;
   for (const d of directives) {
@@ -127,33 +122,28 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       if (scopeName) {
         throw new Error(`[SWD-ERR] multiple @scope found in the same styled block.`);
       }
-      scopeName = d.value; // ค่าชื่อ scope เช่น "app"
+      scopeName = d.value; // เช่น "app"
     }
-    // อนาคตถ้าเจอ @bind, @mix ค่อย handle ต่อ
+    // ยังไม่ handle @bind ตรงนี้ รอไป handle หลังสร้าง classBlocks
   }
 
-  // 3) ถ้าไม่เจอ scope -> throw
+  // บังคับว่าต้องมี @scope
   if (!scopeName) {
     throw new Error(`[SWD-ERR] You must provide "@scope <name>" in styled(...) template.`);
   }
 
-  // 4) เช็คว่ามีการใช้ scope นี้มาก่อนหรือยัง (global)
-  //    ถ้าซ้ำ -> throw error (ยกเว้นกรณี HMR)
-  // const hotReload = isHotReload();
+  // เช็ค global scope ซ้ำ
   if (usedScopes.has(scopeName)) {
     throw new Error(`[SWD-ERR] scope "${scopeName}" is already used in another file.`);
   }
-  // ถ้ายังไม่เคยใช้ -> จดจำ
   usedScopes.add(scopeName);
 
-  // 5) เตรียม Set กัน className ซ้ำในไฟล์เดียวกัน
+  // 3) เช็ค classBlocks + processOneClass
+  //    กัน className ซ้ำในไฟล์เดียวกัน
   const localClasses = new Set<string>();
 
-  // 6) ประมวลผลแต่ละบล็อก .className {...}
   for (const block of classBlocks) {
     const clsName = block.className;
-
-    // 6.1 เช็คในไฟล์เดียวกัน
     if (localClasses.has(clsName)) {
       throw new Error(
         `[SWD-ERR] Duplicate class ".${clsName}" in scope "${scopeName}" (same file).`
@@ -161,7 +151,7 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
     }
     localClasses.add(clsName);
 
-    // 6.2 เช็ค global scope+className
+    // เช็ค global scope+className
     const scopeClassKey = `${scopeName}:${clsName}`;
     if (usedScopeClasses.has(scopeClassKey)) {
       throw new Error(
@@ -170,22 +160,20 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
     }
     usedScopeClasses.add(scopeClassKey);
 
-    // 6.3 สร้าง CSS
+    // สร้าง CSS
     processOneClass(clsName, block.body, scopeName);
   }
 
-  // 7) สร้าง result object คืน (มี .get() สำหรับ set variable ด้วย)
+  // 4) สร้าง result object สำหรับ return
+  //    ใส่ mapping className -> "scopeName_className"
   const resultObj: any = {};
-
-  // 7.1 ใส่ mapping className -> scopeName_className
   for (const block of classBlocks) {
     resultObj[block.className] = `${scopeName}_${block.className}`;
   }
 
-  // 7.2 ใส่เมธอด get(...).set(...)
+  // 5) ใส่เมธอด get(...).set(...)
   resultObj.get = function <K2 extends keyof T>(classKey: K2) {
     return {
-      // จากโค้ดเดิมใน styled.ts หรือที่ใดก็ตาม
       set: (props: Partial<Record<string, string>>) => {
         const displayName = resultObj[classKey as string];
         if (!displayName) return;
@@ -195,18 +183,17 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
         for (const abbr in props) {
           let val = props[abbr];
           if (!val) continue;
+
           // แยก varName / suffix
           const { baseVarName, suffix } = parseVariableAbbr(abbr);
-
           // ประกอบชื่อ
           const finalVar = buildVariableName(baseVarName, scope, cls, suffix);
 
-          // ถ้า value มี --xxx => แทนด้วย var(--xxx)
+          // ถ้า value มี --xxx => replace เป็น var(--xxx)
           if (val.includes('--')) {
             val = val.replace(/(--[\w-]+)/g, 'var($1)');
           }
-
-          // ใส่ลง pendingVars
+          // เก็บลง pendingVars
           pendingVars[finalVar] = val;
         }
         // schedule rAF เพื่อ flush
@@ -215,5 +202,59 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
     };
   };
 
+  // 6) จัดการ @bind directive - ต้องทำ "หลัง" เราสร้างคลาสแล้ว
+  //    เก็บ bind key ทั้งหมด เพื่อป้องกันซ้ำ (ภายในไฟล์เดียวกัน)
+  const localBindKeys = new Set<string>();
+
+  for (const d of directives) {
+    if (d.name === 'bind') {
+      // d.value = "wrapbox .box .box2"
+      // 1) split => ["wrapbox", ".box", ".box2"]
+      const tokens = d.value.trim().split(/\s+/);
+      if (tokens.length < 2) {
+        throw new Error(`[SWD-ERR] Invalid @bind syntax: "${d.value}"`);
+      }
+      const bindKey = tokens[0]; // "wrapbox"
+      const classRefs = tokens.slice(1); // [".box", ".box2"]
+
+      // 2) ห้ามซ้ำ bindKey ในไฟล์
+      if (localBindKeys.has(bindKey)) {
+        throw new Error(`[SWD-ERR] @bind key "${bindKey}" is already used in this file.`);
+      }
+      localBindKeys.add(bindKey);
+
+      // 3) เช็คว่าภายใน resultObj มี property ชื่อ bindKey อยู่แล้วไหม
+      //    เช่น user ใช้ @bind box ... แต่ก็มี resultObj.box อยู่แล้ว
+      if (Object.prototype.hasOwnProperty.call(resultObj, bindKey)) {
+        throw new Error(
+          `[SWD-ERR] @bind key "${bindKey}" conflicts with existing property in styled with scope "${scopeName}".`
+        );
+      }
+
+      // 4) แปลงชื่อคลาส
+      const finalClassList: string[] = [];
+      for (const ref of classRefs) {
+        // เช่น ".box" => "box"
+        if (!ref.startsWith('.')) {
+          throw new Error(`[SWD-ERR] @bind usage must reference classes with a dot, got "${ref}"`);
+        }
+        const refName = ref.slice(1); // "box"
+        // เช็คว่าใน resultObj มีมั้ย
+        if (!resultObj[refName]) {
+          throw new Error(
+            `[SWD-ERR] @bind referencing ".${refName}" but that class is not defined.`
+          );
+        }
+        finalClassList.push(resultObj[refName]); // เช่น "app_box"
+      }
+
+      // 5) join => "app_box app_box2"
+      const joined = finalClassList.join(' ');
+      // 6) set resultObj[bindKey] = joined
+      resultObj[bindKey] = joined;
+    }
+  }
+
+  // 7) คืน resultObj
   return resultObj as StyledResult<T>;
 }

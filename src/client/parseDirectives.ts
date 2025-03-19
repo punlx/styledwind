@@ -1,4 +1,4 @@
-// parseDirectives.ts
+// src/client/parseDirectives.ts
 
 /**
  * โครงสร้างเก็บ Directive ที่ parse ได้

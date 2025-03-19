@@ -1,6 +1,5 @@
 // src/client/theme.ts
 import { breakpoints, fontDict } from '../../src/shared/constant';
-import { generateClassId } from '../../src/shared/hash';
 import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
 

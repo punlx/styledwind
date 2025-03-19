@@ -1,4 +1,4 @@
-// processOneClass.ts
+// src/client/processOneClass.ts
 
 import { parseClassDefinition, IStyleDefinition } from '../shared/parseStyles';
 import { insertedRulesMap, IInsertedRules } from './constant';
