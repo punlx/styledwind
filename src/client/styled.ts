@@ -331,7 +331,7 @@ export function styled<T extends Record<string, string[]>>(
   const resultObj: Record<string, any> = { ...classMapping };
 
   // 7) attach get(...).set(...) method
-  attachGetMethod<T>(resultObj);
+  attachGetMethod(resultObj);
 
   // 8) จัดการ @bind directive
   handleBindDirectives(scopeName, directives, resultObj);
