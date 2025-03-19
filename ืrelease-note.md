@@ -32,5 +32,3 @@ export const css = styled<{ base: ['$c']; box1: []; box2: []; box: [] }>`
 ```
 
 ---
-
-**release 3**: Full support SSR (ปัจจุบันกำลังพัฒนาอยู๋ ตอนนี้ใช้ได้แล้วเป็นการทดสอบก่อน แต่ยังต้องทำเพิ่ม เช่น theme), รอ release 2 เพื่อนำ @scope มาใช้งาน ป้องกันปัญหา mismatch

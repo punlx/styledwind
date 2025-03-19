@@ -1,7 +1,6 @@
 // src/client/insertCSSRules.ts
 import { constructedSheet, fallbackStyleElement } from './constant';
 import { IStyleDefinition } from '../shared/parseStyles';
-import { transformVariables } from './transFormVariables'; // ย้ายส่วนแยก logic transformVariables แยกเป็นไฟล์ได้
 import { insertedRulesMap, IInsertedRules } from './constant';
 import { buildCssText } from '../shared/buildCssText';
 import { isServer } from '../server/constant';
