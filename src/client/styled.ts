@@ -9,6 +9,7 @@ import { processOneClass } from './processOneClass';
 ////////////////////
 const pendingVars: Record<string, string> = {};
 let rafScheduled = false;
+
 function flushVars() {
   for (const [varName, val] of Object.entries(pendingVars)) {
     document.documentElement.style.setProperty(varName, val);
@@ -18,6 +19,7 @@ function flushVars() {
   }
   rafScheduled = false;
 }
+
 function scheduleFlush() {
   if (!rafScheduled) {
     rafScheduled = true;
@@ -25,7 +27,9 @@ function scheduleFlush() {
   }
 }
 
-// Global sets
+////////////////////////////////////////
+// Global sets for scope / class
+////////////////////////////////////////
 const usedScopes = new Set<string>();
 const usedScopeClasses = new Set<string>();
 
@@ -40,7 +44,7 @@ export type StyledResult<T> = {
 };
 
 interface ITemplateInfo {
-  styleDef: IStyleDefinition;
+  styleDef: IStyleDefinition; // ดิบ (ยังไม่ transform)
 }
 
 interface IClassInfo {
@@ -49,14 +53,13 @@ interface IClassInfo {
   pendingUse: string[];
 }
 
-export function styled<T extends Record<string, any> = Record<string, never>>(
-  template: TemplateStringsArray
-): StyledResult<T> {
-  const text = template[0];
-
-  const { directives, classBlocks, templateBlocks } = parseDirectivesAndClasses(text);
-
-  // 1) หา @scope
+/**
+ * ฟังก์ชันย่อย: handleScopeDirective
+ * - หาว่าใน directives[] มี @scope หรือไม่
+ * - ถ้าไม่มี => throw error
+ * - ถ้ามี => เช็คซ้ำกับ usedScopes
+ */
+function handleScopeDirective(directives: Array<{ name: string; value: string }>): string {
   let scopeName: string | null = null;
   for (const d of directives) {
     if (d.name === 'scope') {
@@ -73,8 +76,18 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
     throw new Error(`[SWD-ERR] scope "${scopeName}" is already used.`);
   }
   usedScopes.add(scopeName);
+  return scopeName;
+}
 
-  // 2) Pass1 parse templateBlocks
+/**
+ * ฟังก์ชันย่อย: buildTemplateMap
+ * - parse แต่ละ template block => ได้ styleDef ดิบ
+ * - ใส่ลง map: templateName => { styleDef }
+ * - ถ้าเจอ @use ใน template block => throw error
+ */
+function buildTemplateMap(
+  templateBlocks: Array<{ templateName: string; body: string }>
+): Record<string, ITemplateInfo> {
   const templateMap: Record<string, ITemplateInfo> = {};
   for (const tb of templateBlocks) {
     if (tb.body.includes('@use')) {
@@ -83,8 +96,21 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
     const tDef = parseClassDefinition(tb.body);
     templateMap[tb.templateName] = { styleDef: tDef };
   }
+  return templateMap;
+}
 
-  // 3) Pass1 parse classBlocks => classMap
+/**
+ * ฟังก์ชันย่อย: buildClassMap
+ * - parse body ของ .class { ... }
+ * - แยก @use lines => pendingUse
+ * - parse ที่เหลือ => styleDef
+ * - เช็ค dup class
+ * - เก็บลง classMap[className] = { ... }
+ */
+function buildClassMap(
+  classBlocks: Array<{ className: string; body: string }>,
+  scopeName: string
+): Record<string, IClassInfo> {
   const localClassSet = new Set<string>();
   const classMap: Record<string, IClassInfo> = {};
 
@@ -103,7 +129,6 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
     }
     usedScopeClasses.add(scopeClassKey);
 
-    // แยก @use
     const lines = body
       .split('\n')
       .map((l) => l.trim())
@@ -128,15 +153,35 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       pendingUse,
     };
   }
+  return classMap;
+}
 
-  // (สร้าง resultObj: className => "scopeName_className")
-  const resultObj: any = {};
+/**
+ * ฟังก์ชันย่อย: buildResultObj
+ * - จาก classBlocks => สร้าง object: { [className]: "scopeName_className" }
+ */
+function buildResultObj(
+  classBlocks: Array<{ className: string; body: string }>,
+  scopeName: string
+): Record<string, string> {
+  const obj: Record<string, string> = {};
   for (const c of classBlocks) {
-    resultObj[c.className] = `${scopeName}_${c.className}`;
+    obj[c.className] = `${scopeName}_${c.className}`;
   }
+  return obj;
+}
 
-  // 4) Handle @bind
+/**
+ * ฟังก์ชันย่อย: handleBindDirective
+ * - จาก directives => ถ้าเจอ @bind => parse => สร้าง property ใหม่ (key=bindKey) => join class
+ */
+function handleBindDirective(
+  directives: Array<{ name: string; value: string }>,
+  scopeName: string,
+  resultObj: Record<string, string>
+) {
   const localBindKeys = new Set<string>();
+
   for (const d of directives) {
     if (d.name === 'bind') {
       const tokens = d.value.trim().split(/\s+/);
@@ -173,15 +218,23 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       resultObj[bindKey] = finalList.join(' ');
     }
   }
+}
 
-  // 5) Pass2: merge template -> class => processOneClass
+/**
+ * ฟังก์ชันย่อย: pass2MergeAndInsert
+ * - loop classMap => ถ้ามี pendingUse => clone + merge template => processOneClass
+ */
+function pass2MergeAndInsert(
+  classMap: Record<string, IClassInfo>,
+  templateMap: Record<string, ITemplateInfo>,
+  scopeName: string
+) {
   for (const clsName in classMap) {
     const info = classMap[clsName];
     let mergedDef = info.styleDef;
 
     if (info.pendingUse.length > 0) {
-      // clone styleDef
-      mergedDef = JSON.parse(JSON.stringify(mergedDef));
+      mergedDef = JSON.parse(JSON.stringify(mergedDef)); // clone
       for (const tName of info.pendingUse) {
         const tmpl = templateMap[tName];
         if (!tmpl) {
@@ -191,14 +244,18 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       }
     }
 
-    // เรียก processOneClass => transform + insert
-    // สร้าง key = scopeName:className:<<some string>>
-    const bodyKey = JSON.stringify(mergedDef); // or your own method
-    const displayName = processOneClass(clsName, bodyKey, scopeName, mergedDef);
+    // สร้าง key => scopeName:className:<<some string>>
+    const bodyKey = JSON.stringify(mergedDef);
+    processOneClass(clsName, bodyKey, scopeName, mergedDef);
   }
+}
 
-  // 6) ใส่ .get(...).set(...)
-  resultObj.get = function <K2 extends keyof T>(classKey: K2) {
+/**
+ * ฟังก์ชัน: buildGetMethod
+ * - สร้าง .get(...).set(...) สำหรับ resultObj
+ */
+function buildGetMethod<T extends Record<string, any>>(resultObj: Record<string, string>) {
+  return function <K2 extends keyof T>(classKey: K2) {
     return {
       set: (props: Partial<Record<string, string>>) => {
         const displayName = resultObj[classKey as string];
@@ -240,6 +297,46 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       },
     };
   };
+}
+
+/**
+ * ฟังก์ชันหลัก styled():
+ * - parse directive + block
+ * - handle scope
+ * - build templateMap, classMap
+ * - build resultObj
+ * - handle @bind
+ * - pass2 merge + insert
+ * - add .get(...).set(...)
+ */
+export function styled<T extends Record<string, any> = Record<string, never>>(
+  template: TemplateStringsArray
+): StyledResult<T> {
+  const text = template[0];
+
+  // 1) parse directive + block
+  const { directives, classBlocks, templateBlocks } = parseDirectivesAndClasses(text);
+
+  // 2) handle scope
+  const scopeName = handleScopeDirective(directives);
+
+  // 3) build templateMap
+  const templateMap = buildTemplateMap(templateBlocks);
+
+  // 4) build classMap
+  const classMap = buildClassMap(classBlocks, scopeName);
+
+  // 5) build resultObj
+  const resultObj: any = buildResultObj(classBlocks, scopeName);
+
+  // 6) handle @bind
+  handleBindDirective(directives, scopeName, resultObj);
+
+  // 7) pass2 merge + insert
+  pass2MergeAndInsert(classMap, templateMap, scopeName);
+
+  // 8) add .get(...).set(...)
+  resultObj.get = buildGetMethod<T>(resultObj);
 
   return resultObj as StyledResult<T>;
 }

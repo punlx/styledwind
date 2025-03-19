@@ -19,7 +19,7 @@ export function processOneClass(
   abbrStyle: string, // ใช้เป็นส่วนหนึ่งของ key กันซ้ำ
   scopeName: string,
   styleDef?: IStyleDefinition // ใหม่
-): string {
+) {
   const key = `${scopeName}:${className}:${abbrStyle}`;
   const cached = insertedRulesMap.get(key);
   if (cached) {
@@ -46,6 +46,4 @@ export function processOneClass(
 
   const inserted: IInsertedRules = { displayName };
   insertedRulesMap.set(key, inserted);
-
-  return displayName;
 }
