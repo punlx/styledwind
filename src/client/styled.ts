@@ -275,13 +275,13 @@ function handleBindDirectives(
 // Type Definition
 ////////////////////
 
-export type StyledResult<T> = {
-  [K in keyof T]: string;
+export type StyledResult<T extends Record<string, string[]>> = {
+  [K in keyof T]: string; // map className -> final string e.g. "scope_class"
 } & {
   get: <K2 extends keyof T>(
     className: K2
   ) => {
-    set: (props: Partial<Record<string, string>>) => void;
+    set: (props: Partial<Record<T[K2][number], string>>) => void;
   };
 };
 
@@ -295,7 +295,7 @@ export type StyledResult<T> = {
  * - สร้างคลาสตาม scopeName_className
  * - return object สำหรับเข้าถึงชื่อคลาส + .get(...).set(...) แก้ตัวแปร
  */
-export function styled<T extends Record<string, any> = Record<string, never>>(
+export function styled<T extends Record<string, string[]>>(
   template: TemplateStringsArray
 ): StyledResult<T> {
   // 1) ได้ text จาก template (ปัจจุบันสมมติว่าใช้ template[0] อย่างเดียว)
@@ -325,3 +325,24 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
   // 9) return result
   return resultObj as StyledResult<T>;
 }
+
+export const appCss = styled<{ box: ['$bg']; box2: ['$bg']; boxwrap: [''] }>`
+	@scope app
+	@bind bokwrap .box .box2
+
+	.box {
+		$bg[red]
+		c[red]
+		d[block]
+		f[display-1]
+		hover(bg[blue] c[white])
+		after(ct['after'] bg[bluw] c[white])
+		container(max-w[600px], d[flex] jc[center])
+		screen(sm, d[flex] jc[center])
+	}
+
+	.box2 {
+		$bg[red]
+		c[white]
+	}
+`;
