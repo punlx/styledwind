@@ -5,7 +5,7 @@ import { insertedRulesMap, IInsertedRules } from './constant';
 import { insertCSSRules } from './insertCSSRules';
 import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
-import { transformVariables } from './transformVariables';
+import { transformVariables } from './transFormVariables';
 
 /**
  * processOneClass:
