@@ -82,14 +82,6 @@ function scheduleFlush() {
  * insertCSSRules (แบบ batch + debounce)
  */
 export function insertCSSRules(displayName: string, styleDef: IStyleDefinition) {
-  // กันซ้ำ: ถ้ามีอยู่แล้วก็ return
-  if (insertedRulesMap.has(displayName)) {
-    return;
-  }
-
-  // transform variable
-  transformVariables(styleDef, displayName);
-
   // เก็บลง pendingStyleDefs
   pendingStyleDefs.set(displayName, styleDef);
 
