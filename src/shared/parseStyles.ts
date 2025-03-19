@@ -223,22 +223,14 @@ export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition
   });
 }
 
-/**
- * pseudoName = "before" หรือ "after"
- * abbrLine อาจเป็น something แบบ "after(ct['after'] $bg[yellow] c[blue])"
- */
 export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   const pseudoName = abbrLine.slice(0, openParenIdx).trim() as 'before' | 'after';
   const inside = abbrLine.slice(openParenIdx + 1, -1).trim();
 
-  // array ของ abbr เช่น ["ct['after']", "$bg[yellow]", "c[blue]"]
   const propsInPseudo = inside.split(/ (?=[^\[\]]*(?:\[|$))/);
-
-  // ผลลัพธ์ที่เป็น props ธรรมดา (เช่น { content: 'after', background-color: 'yellow' })
   const result: Record<string, string> = styleDef.pseudos[pseudoName] || {};
 
-  // ถ้าระบบรองรับ varPseudos:
   styleDef.varPseudos = styleDef.varPseudos || {};
   styleDef.varPseudos[pseudoName] = styleDef.varPseudos[pseudoName] || {};
 
@@ -246,35 +238,23 @@ export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefini
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
 
-    // ถ้าโค้ดเราใช้ expandFontIfNeeded() ก็อาจเรียกเหมือน parseBaseStyle
-    // แต่สมมติสำหรับ simplicity:
     const expansions = [`${abbr}[${val}]`];
-
     for (const ex of expansions) {
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
 
-      // เช็คว่าเป็น $variable หรือไม่
       const isVariable = abbr2.startsWith('$');
       const realAbbr = isVariable ? abbr2.slice(1) : abbr2;
-
-      // map abbr -> CSS prop
       const cProp = abbrMap[realAbbr as keyof typeof abbrMap];
       if (!cProp) {
         throw new Error(`"${realAbbr}" not found in abbrMap for pseudo-element ${pseudoName}.`);
       }
-
-      // แปลงค่า (ถ้ามี --var)
       const finalVal = convertCSSVariable(val2);
 
       if (isVariable) {
-        // 1) เก็บใน varPseudos
         styleDef.varPseudos[pseudoName]![realAbbr] = finalVal;
-        // 2) ส่วน result ใส่ placeholder var(--xxx-pseudo) ไว้ก่อน
-        //    พอ transformVariables จะมา replace var(--bg-after) เป็น var(--bg-app_box-after)
         result[cProp] = `var(--${realAbbr}-${pseudoName})`;
       } else {
-        // case ไม่ใช่ $variable -> ใส่ค่าตรง ๆ
         result[cProp] = finalVal;
       }
     }
@@ -323,13 +303,13 @@ export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
       }
     }
   }
-
   styleDef.states[funcName] = result;
 }
 
 export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
   if (openParenIdx === -1) {
+    // base style
     parseBaseStyle(abbrLine, styleDef);
     return;
   }
@@ -355,6 +335,95 @@ export function parseClassDefinition(abbrStyle: string): IStyleDefinition {
   for (const abbr of rowsAbbr) {
     parseSingleAbbr(abbr, styleDef);
   }
-
   return styleDef;
+}
+
+/**
+ * mergeStyleDef:
+ *   เอา source (template) ไปใส่ใน target (class) ถ้าเจอ prop ซ้ำ => throw
+ */
+export function mergeStyleDef(source: IStyleDefinition, target: IStyleDefinition): void {
+  // base
+  for (const prop in source.base) {
+    if (target.base[prop]) {
+      throw new Error(`[SWD-ERR] base prop collision "${prop}".`);
+    }
+    target.base[prop] = source.base[prop];
+  }
+  // varBase
+  if (source.varBase) {
+    target.varBase = target.varBase || {};
+    for (const vName in source.varBase) {
+      if (target.varBase[vName]) {
+        throw new Error(`[SWD-ERR] varBase collision "$${vName}".`);
+      }
+      target.varBase[vName] = source.varBase[vName];
+    }
+  }
+  // states
+  for (const st in source.states) {
+    if (!target.states[st]) {
+      target.states[st] = {};
+    } else {
+      for (const prop in source.states[st]) {
+        if (target.states[st][prop]) {
+          throw new Error(`[SWD-ERR] state:${st} collision prop "${prop}".`);
+        }
+      }
+    }
+    Object.assign(target.states[st], source.states[st]);
+  }
+  // varStates
+  if (source.varStates) {
+    target.varStates = target.varStates || {};
+    for (const st in source.varStates) {
+      if (!target.varStates[st]) {
+        target.varStates[st] = {};
+      } else {
+        for (const vName in source.varStates[st]) {
+          if (target.varStates[st][vName]) {
+            throw new Error(`[SWD-ERR] varState:${st} collision "$${vName}".`);
+          }
+        }
+      }
+      Object.assign(target.varStates[st], source.varStates[st]);
+    }
+  }
+  // pseudos
+  for (const pName in source.pseudos) {
+    if (!target.pseudos[pName]) {
+      target.pseudos[pName] = {};
+    } else {
+      for (const prop in source.pseudos[pName]!) {
+        if (target.pseudos[pName]![prop]) {
+          throw new Error(`[SWD-ERR] pseudo:${pName} collision prop "${prop}".`);
+        }
+      }
+    }
+    Object.assign(target.pseudos[pName], source.pseudos[pName]);
+  }
+  // varPseudos
+  if (source.varPseudos) {
+    target.varPseudos = target.varPseudos || {};
+    for (const pName in source.varPseudos) {
+      if (!target.varPseudos[pName]) {
+        target.varPseudos[pName] = {};
+      } else {
+        for (const vName in source.varPseudos[pName]!) {
+          if (target.varPseudos[pName]![vName]) {
+            throw new Error(`[SWD-ERR] varPseudo:${pName} collision "$${vName}".`);
+          }
+        }
+      }
+      Object.assign(target.varPseudos[pName], source.varPseudos[pName]);
+    }
+  }
+  // screens
+  for (const sObj of source.screens) {
+    target.screens.push(sObj);
+  }
+  // containers
+  for (const cObj of source.containers) {
+    target.containers.push(cObj);
+  }
 }

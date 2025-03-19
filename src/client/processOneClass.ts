@@ -9,38 +9,41 @@ import { transformVariables } from './transformVariables';
 
 /**
  * processOneClass:
- * - parse abbrBody -> styleDef
+ * - parse abbrBody -> styleDef (ถ้าไม่มี styleDef มา)
  * - สร้าง displayName = scopeName_className
- * - transformVariables (ใช้ --varName-scopeName_className)
- * - insert DOM หรือ SSR
- * - กันซ้ำใน insertedRulesMap ด้วย key = scopeName:className:body
+ * - transformVariables -> insert DOM/SSR
+ * - กันซ้ำ insertedRulesMap
  */
-export function processOneClass(className: string, abbrStyle: string, scopeName: string): string {
-  // สร้าง key กันซ้ำ
+export function processOneClass(
+  className: string,
+  abbrStyle: string, // ใช้เป็นส่วนหนึ่งของ key กันซ้ำ
+  scopeName: string,
+  styleDef?: IStyleDefinition // ใหม่
+): string {
   const key = `${scopeName}:${className}:${abbrStyle}`;
   const cached = insertedRulesMap.get(key);
   if (cached) {
     return cached.displayName;
   }
 
-  // parse abbr -> styleDef
-  const styleDef: IStyleDefinition = parseClassDefinition(abbrStyle);
-
-  // displayName = scopeName_className
-  const displayName = `${scopeName}_${className}`;
-
-  // transform variable
-  transformVariables(styleDef, scopeName, className);
-
-  // แยก SSR หรือ CSR
-  if (isServer) {
-    const sheet = serverStyleSheet();
-    sheet.insertCSSRules(displayName, styleDef);
+  let finalDef: IStyleDefinition;
+  if (styleDef) {
+    finalDef = styleDef;
   } else {
-    insertCSSRules(displayName, styleDef);
+    finalDef = parseClassDefinition(abbrStyle);
   }
 
-  // กันซ้ำ
+  const displayName = `${scopeName}_${className}`;
+
+  transformVariables(finalDef, scopeName, className);
+
+  if (isServer) {
+    const sheet = serverStyleSheet();
+    sheet.insertCSSRules(displayName, finalDef);
+  } else {
+    insertCSSRules(displayName, finalDef);
+  }
+
   const inserted: IInsertedRules = { displayName };
   insertedRulesMap.set(key, inserted);
 
