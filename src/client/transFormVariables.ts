@@ -47,7 +47,7 @@ export function transformVariables(
   // -----------------------------
   if (styleDef.varStates) {
     for (const stName in styleDef.varStates) {
-      const varsOfThatState = styleDef.varStates[stName] || {};
+      const varsOfThatState: Record<string, string> = styleDef.varStates[stName] || {};
       for (const varName in varsOfThatState) {
         const rawValue = varsOfThatState[varName];
         // ตัวแปรใส่ -scope_class-state
@@ -75,25 +75,27 @@ export function transformVariables(
   // ------------------------------------------------------
   if (styleDef.varPseudos) {
     for (const pseudoName in styleDef.varPseudos) {
-      // pseudoVars = { bg: 'yellow', c: 'blue' } สมมติ
-      const pseudoVars = styleDef.varPseudos[pseudoName] || {};
-      for (const varName in pseudoVars) {
-        const rawValue = pseudoVars[varName];
-        // finalVarName -> --bg-app_box-after
-        const finalVarName = `--${varName}-${scopeName}_${className}-${pseudoName}`;
+      if (pseudoName === 'before' || pseudoName === 'after') {
+        // pseudoVars = { bg: 'yellow', c: 'blue' } สมมติ
+        const pseudoVars: Record<string, string> = styleDef.varPseudos[pseudoName] || {};
+        for (const varName in pseudoVars) {
+          const rawValue = pseudoVars[varName];
+          // finalVarName -> --bg-app_box-after
+          const finalVarName = `--${varName}-${scopeName}_${className}-${pseudoName}`;
 
-        // เก็บลง rootVars
-        styleDef.rootVars = styleDef.rootVars || {};
-        styleDef.rootVars[finalVarName] = rawValue;
+          // เก็บลง rootVars
+          styleDef.rootVars = styleDef.rootVars || {};
+          styleDef.rootVars[finalVarName] = rawValue;
 
-        // replace ใน styleDef.pseudos[pseudoName]
-        const pseudoProps = styleDef.pseudos[pseudoName];
-        if (pseudoProps) {
-          for (const cssProp in pseudoProps) {
-            pseudoProps[cssProp] = pseudoProps[cssProp].replace(
-              `var(--${varName}-${pseudoName})`,
-              `var(${finalVarName})`
-            );
+          // replace ใน styleDef.pseudos[pseudoName]
+          const pseudoProps = styleDef.pseudos[pseudoName];
+          if (pseudoProps) {
+            for (const cssProp in pseudoProps) {
+              pseudoProps[cssProp] = pseudoProps[cssProp].replace(
+                `var(--${varName}-${pseudoName})`,
+                `var(${finalVarName})`
+              );
+            }
           }
         }
       }

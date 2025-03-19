@@ -25,7 +25,7 @@ interface IParseResult {
 
 /**
  * parseDirectivesAndClasses:
- * - แยก directive @scope, @bind, @mix (หรืออื่น ๆ)
+ * - แยก directive @scope, @bind, (หรืออื่น ๆ)
  * - แยก block .classname { ... }
  */
 export function parseDirectivesAndClasses(text: string): IParseResult {
