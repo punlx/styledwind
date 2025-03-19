@@ -6,6 +6,7 @@ import { parseDirectivesAndClasses, IParsedDirective } from './parseDirectives';
 ////////////////////
 // Helper Functions
 ////////////////////
+
 /**
  * แยก scope กับ cls ออกจาก displayName เช่น "app_box"
  * return { scope: "app", cls: "box" }
@@ -91,32 +92,18 @@ const usedScopes = new Set<string>();
 /** เก็บ "scope:className" ที่ถูกใช้งานแล้ว (กันซ้ำข้ามไฟล์) */
 const usedScopeClasses = new Set<string>();
 
-export type StyledResult<T> = {
-  [K in keyof T]: string;
-} & {
-  get: <K2 extends keyof T>(
-    className: K2
-  ) => {
-    set: (props: Partial<Record<string, string>>) => void;
-  };
-};
+////////////////////
+// New Pure Functions for styled()
+////////////////////
 
 /**
- * ฟังก์ชันหลัก styled()
- * - parse directive (โดยเฉพาะ @scope, @bind) + parse block .class { ... }
- * - สร้างคลาสตาม scopeName_className
- * - return object สำหรับเข้าถึงชื่อคลาส + .get(...).set(...) แก้ตัวแปร
+ * extractScope(directives):
+ * - หา directive ชื่อ '@scope' แล้ว return ค่า
+ * - ถ้าเจอหลายอันหรือไม่เจอ ให้ throw error
  */
-export function styled<T extends Record<string, any> = Record<string, never>>(
-  template: TemplateStringsArray
-): StyledResult<T> {
-  let text = template[0];
-
-  // 1) เรียก parser เพื่อแยก directive + class blocks
-  const { directives, classBlocks } = parseDirectivesAndClasses(text);
-
-  // 2) หา @scope
+function extractScope(directives: IParsedDirective[]): string {
   let scopeName: string | null = null;
+
   for (const d of directives) {
     if (d.name === 'scope') {
       if (scopeName) {
@@ -124,26 +111,44 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       }
       scopeName = d.value; // เช่น "app"
     }
-    // ยังไม่ handle @bind ตรงนี้ รอไป handle หลังสร้าง classBlocks
   }
 
-  // บังคับว่าต้องมี @scope
   if (!scopeName) {
     throw new Error(`[SWD-ERR] You must provide "@scope <name>" in styled(...) template.`);
   }
 
-  // เช็ค global scope ซ้ำ
+  return scopeName;
+}
+
+/**
+ * ensureScopeUnique(scopeName):
+ * - ตรวจสอบว่า scopeName นี้ถูกใช้ไปแล้วหรือยัง
+ * - ถ้าเคยใช้แล้ว ให้ throw error
+ * - มิฉะนั้น add ลง usedScopes
+ */
+function ensureScopeUnique(scopeName: string) {
   if (usedScopes.has(scopeName)) {
     throw new Error(`[SWD-ERR] scope "${scopeName}" is already used in another file.`);
   }
   usedScopes.add(scopeName);
+}
 
-  // 3) เช็ค classBlocks + processOneClass
-  //    กัน className ซ้ำในไฟล์เดียวกัน
+/**
+ * processClassBlocks(scopeName, classBlocks):
+ * - วน loop classBlocks => ตรวจซ้ำ => call processOneClass => สร้าง mapping
+ * - return { [className]: scope_className }
+ */
+function processClassBlocks(
+  scopeName: string,
+  classBlocks: Array<{ className: string; body: string }>
+): Record<string, string> {
   const localClasses = new Set<string>();
+  const resultMap: Record<string, string> = {};
 
   for (const block of classBlocks) {
     const clsName = block.className;
+
+    // 1) กันซ้ำในไฟล์เดียวกัน
     if (localClasses.has(clsName)) {
       throw new Error(
         `[SWD-ERR] Duplicate class ".${clsName}" in scope "${scopeName}" (same file).`
@@ -151,7 +156,7 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
     }
     localClasses.add(clsName);
 
-    // เช็ค global scope+className
+    // 2) กันซ้ำข้ามไฟล์ (global)
     const scopeClassKey = `${scopeName}:${clsName}`;
     if (usedScopeClasses.has(scopeClassKey)) {
       throw new Error(
@@ -160,18 +165,20 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
     }
     usedScopeClasses.add(scopeClassKey);
 
-    // สร้าง CSS
+    // 3) สร้าง CSS (เรียก processOneClass)
     processOneClass(clsName, block.body, scopeName);
-  }
 
-  // 4) สร้าง result object สำหรับ return
-  //    ใส่ mapping className -> "scopeName_className"
-  const resultObj: any = {};
-  for (const block of classBlocks) {
-    resultObj[block.className] = `${scopeName}_${block.className}`;
+    // 4) ใส่ใน resultMap (className -> "scopeName_className")
+    resultMap[clsName] = `${scopeName}_${clsName}`;
   }
+  return resultMap;
+}
 
-  // 5) ใส่เมธอด get(...).set(...)
+/**
+ * attachGetMethod(resultObj):
+ * - ใส่เมธอด resultObj.get(...).set(...) เพื่อปรับเปลี่ยนค่า variable runtime
+ */
+function attachGetMethod<T extends Record<string, any>>(resultObj: Record<string, string>) {
   resultObj.get = function <K2 extends keyof T>(classKey: K2) {
     return {
       set: (props: Partial<Record<string, string>>) => {
@@ -201,9 +208,19 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       },
     };
   };
+}
 
-  // 6) จัดการ @bind directive - ต้องทำ "หลัง" เราสร้างคลาสแล้ว
-  //    เก็บ bind key ทั้งหมด เพื่อป้องกันซ้ำ (ภายในไฟล์เดียวกัน)
+/**
+ * handleBindDirectives(scopeName, directives, resultObj):
+ * - หลังจากสร้าง class mapping แล้ว จึง parse @bind
+ * - เช่น @bind boxWrap .box .box2
+ * - สุดท้าย resultObj[boxWrap] = "app_box app_box2"
+ */
+function handleBindDirectives(
+  scopeName: string,
+  directives: IParsedDirective[],
+  resultObj: Record<string, string>
+) {
   const localBindKeys = new Set<string>();
 
   for (const d of directives) {
@@ -224,7 +241,6 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       localBindKeys.add(bindKey);
 
       // 3) เช็คว่าภายใน resultObj มี property ชื่อ bindKey อยู่แล้วไหม
-      //    เช่น user ใช้ @bind box ... แต่ก็มี resultObj.box อยู่แล้ว
       if (Object.prototype.hasOwnProperty.call(resultObj, bindKey)) {
         throw new Error(
           `[SWD-ERR] @bind key "${bindKey}" conflicts with existing property in styled with scope "${scopeName}".`
@@ -239,7 +255,6 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
           throw new Error(`[SWD-ERR] @bind usage must reference classes with a dot, got "${ref}"`);
         }
         const refName = ref.slice(1); // "box"
-        // เช็คว่าใน resultObj มีมั้ย
         if (!resultObj[refName]) {
           throw new Error(
             `[SWD-ERR] @bind referencing ".${refName}" but that class is not defined.`
@@ -254,7 +269,59 @@ export function styled<T extends Record<string, any> = Record<string, never>>(
       resultObj[bindKey] = joined;
     }
   }
+}
 
-  // 7) คืน resultObj
+////////////////////
+// Type Definition
+////////////////////
+
+export type StyledResult<T> = {
+  [K in keyof T]: string;
+} & {
+  get: <K2 extends keyof T>(
+    className: K2
+  ) => {
+    set: (props: Partial<Record<string, string>>) => void;
+  };
+};
+
+////////////////////
+// Main Function: styled()
+////////////////////
+
+/**
+ * ฟังก์ชันหลัก styled()
+ * - parse directive (โดยเฉพาะ @scope, @bind) + parse block .class { ... }
+ * - สร้างคลาสตาม scopeName_className
+ * - return object สำหรับเข้าถึงชื่อคลาส + .get(...).set(...) แก้ตัวแปร
+ */
+export function styled<T extends Record<string, any> = Record<string, never>>(
+  template: TemplateStringsArray
+): StyledResult<T> {
+  // 1) ได้ text จาก template (ปัจจุบันสมมติว่าใช้ template[0] อย่างเดียว)
+  let text = template[0];
+
+  // 2) parse directives + class blocks
+  const { directives, classBlocks } = parseDirectivesAndClasses(text);
+
+  // 3) หา scope (@scope)
+  const scopeName = extractScope(directives);
+
+  // 4) เช็คว่า scope นี้ซ้ำหรือไม่
+  ensureScopeUnique(scopeName);
+
+  // 5) ประมวลผล class blocks => ได้ map ของ { className: "scope_className" }
+  const classMapping = processClassBlocks(scopeName, classBlocks);
+
+  // 6) สร้าง resultObj (ใส่ mapping className -> scope_className ลงไป)
+  const resultObj: Record<string, any> = { ...classMapping };
+
+  // 7) attach get(...).set(...) method
+  attachGetMethod<T>(resultObj);
+
+  // 8) จัดการ @bind directive
+  handleBindDirectives(scopeName, directives, resultObj);
+
+  // 9) return result
   return resultObj as StyledResult<T>;
 }
