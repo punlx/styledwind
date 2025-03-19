@@ -18,12 +18,10 @@ export class ServerStyleSheet {
   public insertCSSRules(displayName: string, styleDef: IStyleDefinition) {
     // ถ้าต้องการ transformVariables บน server ก็ใส่ได้ (หรือให้ client handle ก็ได้)
     this.styleDefMap.set(displayName, styleDef);
-    console.log('serverStyleSheet.ts:22 |this.styleDefMap| : ', this.styleDefMap);
   }
 
   public setThemeCSSText(cssText: string) {
     this.themeCSSText = cssText;
-    console.log('serverStyleSheet.ts:27 |this.themeCSSText| : ', this.themeCSSText);
   }
 
   /**
@@ -35,10 +33,8 @@ export class ServerStyleSheet {
       css += buildCssText(displayName, styleDef);
     }
     if (this.themeCSSText) {
-      console.log('serverStyleSheet.ts:37 |this.themeCSSText| : ', this.themeCSSText);
       css = this.themeCSSText + css;
     }
-    console.log('serverStyleSheet.ts:40 |css| : ', css);
 
     return css;
   }
