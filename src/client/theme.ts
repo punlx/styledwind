@@ -1,6 +1,8 @@
 // src/client/theme.ts
 import { breakpoints, fontDict } from '../../src/shared/constant';
 import { generateClassId } from '../../src/shared/hash';
+import { isServer } from '../server/constant';
+import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
 
 let themeStyleEl: HTMLStyleElement | null = null;
 let cachedPaletteCSS = '';
@@ -20,8 +22,14 @@ function ensureThemeStyleElement() {
 }
 
 function updateThemeStyleContent() {
-  const styleEl = ensureThemeStyleElement();
-  styleEl.textContent = cachedPaletteCSS + cachedSpacingCSS + cachedKeyframeCSS;
+  const cssText = cachedPaletteCSS + cachedSpacingCSS + cachedKeyframeCSS;
+  if (isServer) {
+    const sheet = serverStyleSheet();
+    sheet.setThemeCSSText(cssText);
+  } else {
+    const styleEl = ensureThemeStyleElement();
+    styleEl.textContent = cssText;
+  }
 }
 
 function setTheme(mode: string, modes: string[]) {
