@@ -1,26 +1,33 @@
 {
   "name": "styledwindjs",
-  "version": "0.0.2-beta-4",
-  "description": "StyledWind is a lightweight and efficient CSS-in-JS framework that brings utility-first styling to JavaScript and TypeScript projects. Inspired by Tailwind CSS and Styled-Components, it allows you to write styles using a concise abbreviation-based syntax while dynamically updating styles at runtime. Perfect for modern web applications that need fast and flexible styling solutions.",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc && node esbuild.config.js"
+  "version": "1.0.6",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./server": {
+      "import": "./dist/server.js",
+      "require": "./dist/server.js"
+    }
   },
   "files": [
     "dist"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/punlx/styledwind"
+  "scripts": {
+    "build:client": "tsc -p tsconfig.client.json",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:esbuild": "node esbuild.config.js",
+    "clean:nonmin": "del-cli \"dist/client/*.js\" \"dist/server/*.js\" \"dist/shared/*.js\"",
+    "generate:dts": "node scripts/generate-dts.js",
+    "build": "rm -rf dist && npm run build:client && npm run build:server && npm run build:esbuild && npm run clean:nonmin && npm run generate:dts",
+    "test": "echo no test"
   },
-  "keywords": [
-    "typescript",
-    "library"
-  ],
-  "author": "punl.x",
-  "license": "MIT",
   "devDependencies": {
-    "esbuild": "^0.25.1"
+    "del-cli": "^3.0.1",
+    "esbuild": "^0.17.0",
+    "typescript": "^4.9.5"
   }
 }

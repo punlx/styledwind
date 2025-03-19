@@ -1,20 +1,15 @@
-// constant.ts
-
-/**********************************************
- * 1) คำย่อ -> ชื่อ CSS property
- **********************************************/
+/* ------------------------------------------
+ * src/shared/constant.ts
+ * - เก็บค่าหรือ dictionary ที่ใช้ร่วมกันทั้ง client/server
+ * ------------------------------------------ */
 export const abbrMap = {
-  /********************************************
-   * Alignment, Box, and Display
-   ********************************************/
+  // Alignment, Box, Display
   ac: 'align-content',
   ai: 'align-items',
   as: 'align-self',
   d: 'display',
 
-  /********************************************
-   * Animation
-   ********************************************/
+  // Animation
   am: 'animation',
   'am-delay': 'animation-delay',
   'am-drt': 'animation-direction',
@@ -25,9 +20,7 @@ export const abbrMap = {
   'am-play': 'animation-play-state',
   'am-timefun': 'animation-timing-function',
 
-  /********************************************
-   * Background
-   ********************************************/
+  // Background
   bg: 'background-color',
   'bg-pos': 'background-position',
   'bg-size': 'background-size',
@@ -36,9 +29,7 @@ export const abbrMap = {
   'bg-origin': 'background-origin',
   'bg-blend': 'background-blend-mode',
 
-  /********************************************
-   * Border / Outline
-   ********************************************/
+  // Border / Outline
   bd: 'border',
   bdl: 'border-left',
   bdt: 'border-top',
@@ -56,39 +47,29 @@ export const abbrMap = {
   'ol-style': 'outline-style',
   'ol-offset': 'outline-offset',
 
-  /********************************************
-   * Box Shadow / Sizing
-   ********************************************/
+  // Box Shadow / Sizing
   sd: 'box-shadow',
   sz: 'box-sizing',
 
-  /********************************************
-   * Color, Cursor
-   ********************************************/
+  // Color, Cursor
   c: 'color',
   cs: 'cursor',
 
-  /********************************************
-   * Container Query
-   ********************************************/
+  // Container Query
   'cn-type': 'container-type',
   cn: 'container',
   'cn-name': 'container-name',
 
-  /********************************************
-   * Columns / Gap
-   ********************************************/
+  // Columns / Gap
   cols: 'columns',
   'col-gap': 'column-gap',
   'row-gap': 'row-gap',
   gap: 'gap',
 
-  /********************************************
-   * Flex / Grid
-   ********************************************/
+  // Flex / Grid
   fx: 'flex',
   'fx-basis': 'flex-basis',
-  basis: 'flex-basis', // (สำรอง ถ้าอยากใช้ basis[...] ตรง ๆ)
+  basis: 'flex-basis',
   wrap: 'flex-wrap',
   drt: 'flex-direction',
   flow: 'flex-flow',
@@ -114,9 +95,7 @@ export const abbrMap = {
   'gd-temp-cols': 'grid-template-columns',
   'gd-temp-rows': 'grid-template-rows',
 
-  /********************************************
-   * Justify / Align / Place
-   ********************************************/
+  // Justify / Align / Place
   jc: 'justify-content',
   ji: 'justify-items',
   js: 'justify-self',
@@ -124,9 +103,7 @@ export const abbrMap = {
   pi: 'place-items',
   ps: 'place-self',
 
-  /********************************************
-   * Font / Text
-   ********************************************/
+  // Font / Text
   fm: 'font-family',
   fs: 'font-size',
   fw: 'font-weight',
@@ -155,17 +132,13 @@ export const abbrMap = {
   'tx-decor-style': 'text-decoration-style',
   'tx-decor-skip': 'text-decoration-skip-ink',
 
-  /********************************************
-   * Filter / Blend / Backdrop
-   ********************************************/
+  // Filter / Blend / Backdrop
   fil: 'filter',
   bf: 'backdrop-filter',
   '-webkit-bf': '-webkit-backdrop-filter',
   mbm: 'mix-blend-mode',
 
-  /********************************************
-   * Dimensions / Spacing
-   ********************************************/
+  // Dimensions / Spacing
   w: 'width',
   'max-w': 'max-width',
   'min-w': 'min-width',
@@ -185,9 +158,7 @@ export const abbrMap = {
   pr: 'padding-right',
   pb: 'padding-bottom',
 
-  /********************************************
-   * Position
-   ********************************************/
+  // Position
   pos: 'position',
   l: 'left',
   t: 'top',
@@ -195,20 +166,14 @@ export const abbrMap = {
   b: 'bottom',
   z: 'z-index',
 
-  /********************************************
-   * Object
-   ********************************************/
+  // Object
   'obj-fit': 'object-fit',
   'obj-pos': 'object-position',
 
-  /********************************************
-   * Aspect Ratio
-   ********************************************/
+  // Aspect Ratio
   ar: 'aspect-ratio',
 
-  /********************************************
-   * Overflow / Scroll Behavior
-   ********************************************/
+  // Overflow / Scroll Behavior
   ovf: 'overflow',
   'ovf-x': 'overflow-x',
   'ovf-y': 'overflow-y',
@@ -218,14 +183,10 @@ export const abbrMap = {
   'ovscr-beh-y': 'overscroll-behavior-y',
   rs: 'resize',
 
-  /********************************************
-   * Opacity, Pointer Events, Cursor
-   ********************************************/
+  // Opacity, Pointer Events, Cursor
   pe: 'pointer-events',
 
-  /********************************************
-   * Transform / Transition / Will-change
-   ********************************************/
+  // Transform / Transition / Will-change
   tf: 'transform',
   'tf-origin': 'transform-origin',
   'tf-box': 'transform-box',
@@ -241,9 +202,7 @@ export const abbrMap = {
   'tsn-fn': 'transition-timing-function',
   wc: 'will-change',
 
-  /********************************************
-   * Mask / Clip
-   ********************************************/
+  // Mask / Clip
   mask: 'mask',
   'mask-img': 'mask-image',
   '-webkit-mask': '-webkit-mask',
@@ -251,56 +210,24 @@ export const abbrMap = {
   'clip-path': 'clip-path',
   '-webkit-clip-path': '-webkit-clip-path',
 
-  /********************************************
-   * Appearance / User-select
-   ********************************************/
+  // Appearance / User-select
   app: 'appearance',
   '-webkit-app': '-webkit-appearance',
 
   us: 'user-select',
   '-webkit-sel': '-webkit-user-select',
 
-  /********************************************
-   * Misc
-   ********************************************/
+  // Misc
   iso: 'isolation',
   ct: 'content',
 } as const;
 
-/**********************************************
- * 2) Breakpoints dictionary
- **********************************************/
+// Breakpoints dict
 export const breakpoints = {
   dict: {} as Record<string, string>,
 };
 
+// Font dict
 export const fontDict = {
   dict: {} as Record<string, string>,
 };
-
-/**********************************************
- * 3) ConstructedStylesheet + fallback
- **********************************************/
-export const constructedSheet = new CSSStyleSheet();
-
-let fallbackStyleElement: HTMLStyleElement | null = null;
-
-if ('adoptedStyleSheets' in Document.prototype) {
-  document.adoptedStyleSheets = [...document.adoptedStyleSheets, constructedSheet];
-} else {
-  const styleEl = document.createElement('style');
-  styleEl.id = 'styledwind-construct-fallback';
-  document.head.appendChild(styleEl);
-  fallbackStyleElement = styleEl;
-}
-
-export { fallbackStyleElement };
-
-/**********************************************
- * 4) IInsertedRules + insertedRulesMap
- **********************************************/
-export interface IInsertedRules {
-  displayName: string;
-}
-
-export const insertedRulesMap = new Map<string, IInsertedRules>();
