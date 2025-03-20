@@ -1,5 +1,6 @@
+// * src/client/constant.ts
+
 /* ------------------------------------------
- * src/client/constant.ts
  * - ประกาศ constructedSheet และ fallbackStyleElement
  * - เช็ค typeof window เพื่อไม่ให้เกิด "CSSStyleSheet is not defined" บน SSR
  * ------------------------------------------ */
