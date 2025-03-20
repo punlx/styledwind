@@ -6,12 +6,11 @@ import { insertCSSRules } from './insertCSSRules';
 import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
 import { transformVariables } from './transformVariables';
-
 /**
  * processOneClass:
  * - รับ className + styleDef (parse+merge แล้ว) + scopeName
  * - สร้าง displayName = "scopeName_className"
- * - เรียก transformVariables เพื่อแทนที่ $variable
+ * - เรียก TransformStream เพื่อแทนที่ $variable
  * - insert CSS (adoptedStyleSheets หรือ fallback <style>)
  * - กันซ้ำด้วย insertedRulesMap
  */
@@ -33,7 +32,7 @@ export function processOneClass(
   // สร้างชื่อ class สุดท้าย
   const displayName = `${scopeName}_${className}`;
 
-  // transformVariables => แทนที่ $variable => var(--xxx-scope_class)
+  // TransformStream => แทนที่ $variable => var(--xxx-scope_class)
   transformVariables(styleDef, scopeName, className);
 
   // Insert CSS: ถ้า SSR => serverStyleSheet, ถ้า CSR => insertCSSRules
