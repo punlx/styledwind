@@ -204,7 +204,7 @@ export const theme = {
     if (saved && modes.indexOf(saved) !== -1) {
       setTheme(saved, modes);
     } else {
-      setTheme(modes[1] || 'light', modes);
+      setTheme(modes[0] || 'light', modes);
     }
     return {
       mode: (mode: string) => setTheme(mode, modes),

@@ -33,7 +33,6 @@ export function styled<T extends Record<string, string[]>>(
 
   // 2) parse directives + class blocks + const blocks
   const { directives, classBlocks, constBlocks } = parseDirectivesAndClasses(text);
-  console.log('styled.ts:36 |directives| : ', directives);
   // 3) หา scope (@scope)
   const scopeName = extractScope(directives);
 
