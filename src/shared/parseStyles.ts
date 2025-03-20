@@ -13,8 +13,7 @@ export interface IStyleDefinition {
     props: Record<string, string>;
   }>;
   pseudos: {
-    before?: Record<string, string>;
-    after?: Record<string, string>;
+    [key: string]: Record<string, string> | undefined;
   };
 
   varStates?: {
@@ -22,8 +21,7 @@ export interface IStyleDefinition {
   };
   varBase?: Record<string, string>;
   varPseudos?: {
-    before?: Record<string, string>;
-    after?: Record<string, string>;
+    [key: string]: Record<string, string>;
   };
 
   rootVars?: Record<string, string>;
