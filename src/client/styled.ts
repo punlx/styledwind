@@ -19,43 +19,46 @@ export type StyledResult<T extends Record<string, string[]>> = {
   };
 };
 
-////////////////////
-// Main Function: styled()
-////////////////////
-
 /**
  * ฟังก์ชันหลัก styled()
- * - parse directive (โดยเฉพาะ @scope, @bind) + parse block .class { ... }
+ * - parse directive (@scope, @bind) + parse block .class { ... } + parse @const
  * - สร้างคลาสตาม scopeName_className
  * - return object สำหรับเข้าถึงชื่อคลาส + .get(...).set(...) แก้ตัวแปร
  */
 export function styled<T extends Record<string, string[]>>(
   template: TemplateStringsArray
 ): StyledResult<T> {
-  // 1) ได้ text จาก template (ปัจจุบันสมมติว่าใช้ template[0] อย่างเดียว)
-  let text = template[0];
+  // 1) ได้ text จาก template (ถือว่าใช้ template[0] อย่างเดียว)
+  const text = template[0];
 
-  // 2) parse directives + class blocks
-  const { directives, classBlocks } = parseDirectivesAndClasses(text);
-
+  // 2) parse directives + class blocks + const blocks
+  const { directives, classBlocks, constBlocks } = parseDirectivesAndClasses(text);
+  console.log('styled.ts:36 |directives| : ', directives);
   // 3) หา scope (@scope)
   const scopeName = extractScope(directives);
 
   // 4) เช็คว่า scope นี้ซ้ำหรือไม่
   ensureScopeUnique(scopeName);
 
-  // 5) ประมวลผล class blocks => ได้ map ของ { className: "scope_className" }
-  const classMapping = processClassBlocks(scopeName, classBlocks);
+  // 5) สร้าง map const => partial styleDef
+  const constMap = new Map<string, any>();
+  for (const c of constBlocks) {
+    // ถ้ามีชื่อซ้ำกัน จะ error ตอน parse ไปแล้ว
+    constMap.set(c.name, c.styleDef);
+  }
+  // 6) ประมวลผล class blocks => ได้ map { className: "scope_className" }
+  //    โดยจะ merge partial styleDef ของแต่ละ @use
+  const classMapping = processClassBlocks(scopeName, classBlocks, constMap);
 
-  // 6) สร้าง resultObj (ใส่ mapping className -> scope_className ลงไป)
+  // 7) สร้าง resultObj (mapping className -> scope_className)
   const resultObj: Record<string, any> = { ...classMapping };
 
-  // 7) attach get(...).set(...) method
+  // 8) attach get(...).set(...) method (runtime variable)
   attachGetMethod(resultObj);
 
-  // 8) จัดการ @bind directive
+  // 9) จัดการ @bind directive
   handleBindDirectives(scopeName, directives, resultObj);
 
-  // 9) return result
+  // 10) return
   return resultObj as StyledResult<T>;
 }

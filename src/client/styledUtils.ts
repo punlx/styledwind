@@ -1,147 +1,61 @@
-////////////////////
-// Helper Functions
-////////////////////
+// src/client/styledUtils.ts
 
-import { IParsedDirective } from './parseDirectives';
+import { IParsedDirective, IClassBlock } from './parseDirectives';
+import { IStyleDefinition, createEmptyStyleDef, parseSingleAbbr } from '../shared/parseStyles';
 import { processOneClass } from './processOneClass';
 
-/**
- * แยก scope กับ cls ออกจาก displayName เช่น "app_box"
- * return { scope: "app", cls: "box" }
- */
-export function parseDisplayName(displayName: string): { scope: string; cls: string } {
-  const underscoreIdx = displayName.indexOf('_');
-  if (underscoreIdx < 0) {
-    throw new Error(`[SWD-ERR] Invalid displayName "${displayName}". Must contain underscore.`);
-  }
-  return {
-    scope: displayName.slice(0, underscoreIdx), // เช่น "app"
-    cls: displayName.slice(underscoreIdx + 1), // เช่น "box"
-  };
-}
+// (อาจจะแยกเป็นไฟล์ styledVars หรือรวมในไฟล์นี้ก็ได้ ตามของเดิม)
 
-/**
- * แยก "$bg-hover" => { baseVarName: "bg", suffix: "hover" }
- * ถ้าไม่มี dash เช่น "$bg" => { baseVarName: "bg", suffix: "" }
- */
-export function parseVariableAbbr(abbr: string): { baseVarName: string; suffix: string } {
-  if (!abbr.startsWith('$')) {
-    throw new Error(`[SWD-ERR] Only $variable is supported. Got "${abbr}"`);
-  }
-  const varNameFull = abbr.slice(1); // เช่น "bg-hover"
-  let baseVarName = varNameFull;
-  let suffix = '';
-
-  const dashIdx = varNameFull.lastIndexOf('-');
-  if (dashIdx > 0) {
-    baseVarName = varNameFull.slice(0, dashIdx);
-    suffix = varNameFull.slice(dashIdx + 1);
-  }
-  return { baseVarName, suffix };
-}
-
-/**
- * ประกอบชื่อ CSS variable ตรงกับที่เราใช้ใน transformVariables
- * - ถ้า suffix = "" => "--baseVarName-scope_cls"
- * - ถ้า suffix != "" => "--baseVarName-scope_cls-suffix"
- */
-export function buildVariableName(
-  baseVarName: string,
-  scope: string,
-  cls: string,
-  suffix: string
-): string {
-  if (!suffix) {
-    return `--${baseVarName}-${scope}_${cls}`;
-  }
-  return `--${baseVarName}-${scope}_${cls}-${suffix}`;
-}
-
-/**
- * ส่วนสำคัญ: Queue + rAF
- *   - pendingVars เก็บ { [finalVarName]: value }
- *   - rafScheduled ไว้กันการ schedule rAF ซ้ำ
- */
-const pendingVars: Record<string, string> = {};
-let rafScheduled = false;
-
-export function flushVars() {
-  // เซ็ต property ทั้งหมดลง DOM
-  for (const [varName, val] of Object.entries(pendingVars)) {
-    document.documentElement.style.setProperty(varName, val);
-  }
-  // เคลียร์
-  for (const key in pendingVars) {
-    delete pendingVars[key];
-  }
-  rafScheduled = false;
-}
-
-export function scheduleFlush() {
-  if (!rafScheduled) {
-    rafScheduled = true;
-    requestAnimationFrame(flushVars);
-  }
-}
-
-/** เก็บชื่อ scope ที่ถูกใช้งานแล้ว (กันซ้ำข้ามไฟล์) */
+//======================
+// Global sets
+//======================
 export const usedScopes = new Set<string>();
-
-/** เก็บ "scope:className" ที่ถูกใช้งานแล้ว (กันซ้ำข้ามไฟล์) */
 export const usedScopeClasses = new Set<string>();
 
-////////////////////
-// New Pure Functions for styled()
-////////////////////
+//======================
+// Extract / Ensure scope
+//======================
 
-/**
- * extractScope(directives):
- * - หา directive ชื่อ '@scope' แล้ว return ค่า
- * - ถ้าเจอหลายอันหรือไม่เจอ ให้ throw error
- */
 export function extractScope(directives: IParsedDirective[]): string {
   let scopeName: string | null = null;
-
   for (const d of directives) {
     if (d.name === 'scope') {
       if (scopeName) {
         throw new Error(`[SWD-ERR] multiple @scope found in the same styled block.`);
       }
-      scopeName = d.value; // เช่น "app"
+      scopeName = d.value;
     }
   }
-
   if (!scopeName) {
     throw new Error(`[SWD-ERR] You must provide "@scope <name>" in styled(...) template.`);
   }
-
   return scopeName;
 }
 
-/**
- * ensureScopeUnique(scopeName):
- * - ตรวจสอบว่า scopeName นี้ถูกใช้ไปแล้วหรือยัง
- * - ถ้าเคยใช้แล้ว ให้ throw error
- * - มิฉะนั้น add ลง usedScopes
- */
 export function ensureScopeUnique(scopeName: string) {
   if (usedScopes.has(scopeName)) {
     console.warn(
       `[SWD-ERR] scope "${scopeName}" is already used in another file. Refresh to check if it is a HMR error.`
     );
-    // throw new Error(`[SWD-ERR] scope "${scopeName}" is already used in another file.`);
   }
   usedScopes.add(scopeName);
 }
 
+//======================
+// processClassBlocks
+//======================
+
 /**
- * processClassBlocks(scopeName, classBlocks):
- * - วน loop classBlocks => ตรวจซ้ำ => call processOneClass => สร้าง mapping
- * - return { [className]: scope_className }
+ * processClassBlocks:
+ * - วน loop classBlocks => ตรวจซ้ำ => สร้าง styleDef
+ * - ตรวจว่าใน body มี '@use constName1 constName2 ...' มั้ย
+ * - ถ้ามี => merge partial styleDef จาก constMap
+ * - สุดท้าย call processOneClass => ได้ scopeName_className
  */
 export function processClassBlocks(
   scopeName: string,
-  classBlocks: Array<{ className: string; body: string }>
+  classBlocks: IClassBlock[],
+  constMap: Map<string, IStyleDefinition>
 ): Record<string, string> {
   const localClasses = new Set<string>();
   const resultMap: Record<string, string> = {};
@@ -149,7 +63,7 @@ export function processClassBlocks(
   for (const block of classBlocks) {
     const clsName = block.className;
 
-    // 1) กันซ้ำในไฟล์เดียวกัน
+    // กันซ้ำภายในไฟล์
     if (localClasses.has(clsName)) {
       throw new Error(
         `[SWD-ERR] Duplicate class ".${clsName}" in scope "${scopeName}" (same file).`
@@ -157,34 +71,171 @@ export function processClassBlocks(
     }
     localClasses.add(clsName);
 
-    // 2) กันซ้ำข้ามไฟล์ (global)
+    // กันซ้ำข้ามไฟล์
     const scopeClassKey = `${scopeName}:${clsName}`;
     if (usedScopeClasses.has(scopeClassKey)) {
       console.warn(
         `[SWD-ERR] Class ".${clsName}" in scope "${scopeName}" is already used in another file. Refresh to check if it is a HMR error.`
       );
-      // throw new Error(
-      //   `[SWD-ERR] Class ".${clsName}" in scope "${scopeName}" is already used in another file.`
-      // );
     }
     usedScopeClasses.add(scopeClassKey);
 
-    // 3) สร้าง CSS (เรียก processOneClass)
-    processOneClass(clsName, block.body, scopeName);
+    //=====================================
+    // A) แยกบรรทัดใน block.body
+    //=====================================
+    const lines = block.body
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
 
-    // 4) ใส่ใน resultMap (className -> "scopeName_className")
-    resultMap[clsName] = `${scopeName}_${clsName}`;
+    let usedConstNames: string[] = []; // เก็บชื่อ const จาก @use
+    const normalLines: string[] = []; // เก็บบรรทัดปกติ
+
+    for (const line of lines) {
+      if (line.startsWith('@use ')) {
+        // เช็คว่าถ้ามีการเจอ @use มากกว่า 1 บรรทัด => throw
+        if (usedConstNames.length > 0) {
+          throw new Error(`[SWD-ERR] Multiple @use lines in class ".${clsName}" are not allowed.`);
+        }
+        // แยกชื่อ const
+        const tokens = line.replace('@use', '').trim().split(/\s+/);
+        usedConstNames = tokens;
+      } else {
+        normalLines.push(line);
+      }
+    }
+
+    //=====================================
+    // B) parse normalLines => styleDef
+    //=====================================
+    const classStyleDef = createEmptyStyleDef();
+    for (const ln of normalLines) {
+      parseSingleAbbr(ln, classStyleDef);
+    }
+
+    //=====================================
+    // C) merge partial styleDef จากแต่ละ const
+    //=====================================
+    if (usedConstNames.length > 0) {
+      for (const cName of usedConstNames) {
+        if (!constMap.has(cName)) {
+          throw new Error(`[SWD-ERR] @use refers to unknown const "${cName}".`);
+        }
+        const partialDef = constMap.get(cName)!;
+        mergeStyleDef(classStyleDef, partialDef);
+      }
+    }
+
+    //=====================================
+    // D) สร้าง CSS (transform + insert)
+    //    ผ่าน processOneClass
+    //=====================================
+    const displayName = processOneClass(clsName, classStyleDef, scopeName);
+
+    //  ใส่ mapping className => displayName
+    resultMap[clsName] = displayName;
   }
+
   return resultMap;
 }
+
+/**
+ * mergeStyleDef(target, source):
+ * - เอา source (partial styleDef) มารวมเข้า target
+ * - property/state/pseudo ที่ซ้ำกัน => override ด้วย source
+ */
+function mergeStyleDef(target: IStyleDefinition, source: IStyleDefinition) {
+  // base
+  for (const prop in source.base) {
+    target.base[prop] = source.base[prop];
+  }
+  // states
+  for (const st in source.states) {
+    if (!target.states[st]) {
+      target.states[st] = {};
+    }
+    for (const p in source.states[st]) {
+      target.states[st][p] = source.states[st][p];
+    }
+  }
+  // screens
+  for (const s of source.screens) {
+    // naive: push
+    target.screens.push({ query: s.query, props: { ...s.props } });
+  }
+  // containers
+  for (const c of source.containers) {
+    target.containers.push({ query: c.query, props: { ...c.props } });
+  }
+  // pseudos
+  for (const pName in source.pseudos) {
+    if (!target.pseudos[pName]) {
+      target.pseudos[pName] = {};
+    }
+    const fromPseudo = source.pseudos[pName]!;
+    for (const prop in fromPseudo) {
+      target.pseudos[pName]![prop] = fromPseudo[prop];
+    }
+  }
+
+  // varBase
+  if (source.varBase) {
+    if (!target.varBase) {
+      target.varBase = {};
+    }
+    for (const k in source.varBase) {
+      target.varBase[k] = source.varBase[k];
+    }
+  }
+  // varStates
+  if (source.varStates) {
+    if (!target.varStates) {
+      target.varStates = {};
+    }
+    for (const stName in source.varStates) {
+      if (!target.varStates[stName]) {
+        target.varStates[stName] = {};
+      }
+      for (const k in source.varStates[stName]) {
+        target.varStates[stName][k] = source.varStates[stName][k];
+      }
+    }
+  }
+  // varPseudos
+  if (source.varPseudos) {
+    if (!target.varPseudos) {
+      target.varPseudos = {};
+    }
+    for (const pseudoKey in source.varPseudos) {
+      if (!target.varPseudos[pseudoKey]) {
+        target.varPseudos[pseudoKey] = {};
+      }
+      for (const k in source.varPseudos[pseudoKey]) {
+        target.varPseudos[pseudoKey]![k] = source.varPseudos[pseudoKey][k];
+      }
+    }
+  }
+
+  // rootVars
+  if (source.rootVars) {
+    if (!target.rootVars) {
+      target.rootVars = {};
+    }
+    for (const rv in source.rootVars) {
+      target.rootVars[rv] = source.rootVars[rv];
+    }
+  }
+}
+
+//=====================================
+// attachGetMethod + handleBindDirectives
+//=====================================
 
 type InterimResult<T> = {
   [K in keyof T]: string;
 } & {
-  // เปิดช่องให้มี property ชื่ออื่น (เป็น string)
   [key: string]: string | undefined;
 } & {
-  // เพิ่ม get(...) ได้
   get?: <K2 extends keyof T>(
     classKey: K2
   ) => {
@@ -192,10 +243,6 @@ type InterimResult<T> = {
   };
 };
 
-/**
- * attachGetMethod(resultObj):
- * - ใส่เมธอด resultObj.get(...).set(...) เพื่อปรับเปลี่ยนค่า variable runtime
- */
 export function attachGetMethod<T extends Record<string, any>>(resultObj: InterimResult<T>): void {
   resultObj.get = function <K2 extends keyof T>(classKey: K2) {
     return {
@@ -218,10 +265,10 @@ export function attachGetMethod<T extends Record<string, any>>(resultObj: Interi
           if (val.includes('--')) {
             val = val.replace(/(--[\w-]+)/g, 'var($1)');
           }
-          // เก็บลง pendingVars
+          // เก็บลง queue
           pendingVars[finalVar] = val;
         }
-        // schedule rAF เพื่อ flush
+        // schedule flush
         scheduleFlush();
       },
     };
@@ -230,9 +277,7 @@ export function attachGetMethod<T extends Record<string, any>>(resultObj: Interi
 
 /**
  * handleBindDirectives(scopeName, directives, resultObj):
- * - หลังจากสร้าง class mapping แล้ว จึง parse @bind
- * - เช่น @bind boxWrap .box .box2
- * - สุดท้าย resultObj[boxWrap] = "app_box app_box2"
+ * - parse @bind
  */
 export function handleBindDirectives(
   scopeName: string,
@@ -243,48 +288,121 @@ export function handleBindDirectives(
 
   for (const d of directives) {
     if (d.name === 'bind') {
-      // d.value = "wrapbox .box .box2"
-      // 1) split => ["wrapbox", ".box", ".box2"]
       const tokens = d.value.trim().split(/\s+/);
       if (tokens.length < 2) {
         throw new Error(`[SWD-ERR] Invalid @bind syntax: "${d.value}"`);
       }
-      const bindKey = tokens[0]; // "wrapbox"
-      const classRefs = tokens.slice(1); // [".box", ".box2"]
+      const bindKey = tokens[0];
+      const classRefs = tokens.slice(1);
 
-      // 2) ห้ามซ้ำ bindKey ในไฟล์
       if (localBindKeys.has(bindKey)) {
         throw new Error(`[SWD-ERR] @bind key "${bindKey}" is already used in this file.`);
       }
       localBindKeys.add(bindKey);
 
-      // 3) เช็คว่าภายใน resultObj มี property ชื่อ bindKey อยู่แล้วไหม
       if (Object.prototype.hasOwnProperty.call(resultObj, bindKey)) {
         throw new Error(
-          `[SWD-ERR] @bind key "${bindKey}" conflicts with existing property in styled with scope "${scopeName}".`
+          `[SWD-ERR] @bind key "${bindKey}" conflicts with existing property in styled (scope="${scopeName}").`
         );
       }
 
-      // 4) แปลงชื่อคลาส
       const finalClassList: string[] = [];
       for (const ref of classRefs) {
-        // เช่น ".box" => "box"
         if (!ref.startsWith('.')) {
           throw new Error(`[SWD-ERR] @bind usage must reference classes with a dot, got "${ref}"`);
         }
-        const refName = ref.slice(1); // "box"
+        const refName = ref.slice(1);
         if (!resultObj[refName]) {
           throw new Error(
             `[SWD-ERR] @bind referencing ".${refName}" but that class is not defined.`
           );
         }
-        finalClassList.push(resultObj[refName]); // เช่น "app_box"
+        finalClassList.push(resultObj[refName]);
       }
 
-      // 5) join => "app_box app_box2"
       const joined = finalClassList.join(' ');
-      // 6) set resultObj[bindKey] = joined
       resultObj[bindKey] = joined;
     }
   }
+}
+
+//=====================================
+// Queue + rAF สำหรับ runtime variable
+//=====================================
+
+const pendingVars: Record<string, string> = {};
+let rafScheduled = false;
+
+function flushVars() {
+  for (const [varName, val] of Object.entries(pendingVars)) {
+    document.documentElement.style.setProperty(varName, val);
+  }
+  for (const key in pendingVars) {
+    delete pendingVars[key];
+  }
+  rafScheduled = false;
+}
+
+function scheduleFlush() {
+  if (!rafScheduled) {
+    rafScheduled = true;
+    requestAnimationFrame(flushVars);
+  }
+}
+
+// stylef varriable
+// src/client/styledVars.ts
+
+/**
+ * parseDisplayName:
+ * - แยก "scope_class" ออกเป็น { scope, cls }
+ */
+export function parseDisplayName(displayName: string): { scope: string; cls: string } {
+  const underscoreIdx = displayName.indexOf('_');
+  if (underscoreIdx < 0) {
+    throw new Error(`[SWD-ERR] Invalid displayName "${displayName}". Must contain underscore.`);
+  }
+  return {
+    scope: displayName.slice(0, underscoreIdx),
+    cls: displayName.slice(underscoreIdx + 1),
+  };
+}
+
+/**
+ * parseVariableAbbr:
+ * - แยก "$bg-hover" => { baseVarName: "bg", suffix: "hover" }
+ * - ถ้าไม่มี dash => { baseVarName: "bg", suffix: "" }
+ */
+export function parseVariableAbbr(abbr: string): { baseVarName: string; suffix: string } {
+  if (!abbr.startsWith('$')) {
+    throw new Error(`[SWD-ERR] Only $variable is supported. Got "${abbr}"`);
+  }
+  const varNameFull = abbr.slice(1); // ตัด '$'
+  let baseVarName = varNameFull;
+  let suffix = '';
+
+  const dashIdx = varNameFull.lastIndexOf('-');
+  if (dashIdx > 0) {
+    baseVarName = varNameFull.slice(0, dashIdx);
+    suffix = varNameFull.slice(dashIdx + 1);
+  }
+  return { baseVarName, suffix };
+}
+
+/**
+ * buildVariableName:
+ * - ประกอบชื่อ CSS variable ตรงกับ transformVariables.ts
+ * - เช่น baseVarName="bg", scope="app", cls="box", suffix="hover"
+ *   => "--bg-app_box-hover"
+ */
+export function buildVariableName(
+  baseVarName: string,
+  scope: string,
+  cls: string,
+  suffix: string
+): string {
+  if (!suffix) {
+    return `--${baseVarName}-${scope}_${cls}`;
+  }
+  return `--${baseVarName}-${scope}_${cls}-${suffix}`;
 }
