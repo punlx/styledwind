@@ -197,17 +197,22 @@ export const theme = {
 
     const modes = colors[0];
     let saved = '';
+    let currentMode = '';
     try {
       saved = localStorage.getItem('styledwind-theme') || '';
     } catch {}
 
     if (saved && modes.indexOf(saved) !== -1) {
       setTheme(saved, modes);
+      currentMode = saved;
     } else {
-      setTheme(modes[0] || 'light', modes);
+      currentMode = modes[0] || 'light';
+      setTheme(currentMode, modes);
     }
     return {
-      mode: (mode: string) => setTheme(mode, modes),
+      swtich: (mode: string) => setTheme(mode, modes),
+      modes,
+      currentMode,
     };
   },
 
