@@ -10,11 +10,13 @@ let cachedKeyframeCSS = '';
 let cachedSpacingCSS = '';
 
 // Breakpoints dict
+// if build to js it will working
 export const breakpoints = {
   dict: {} as Record<string, string>,
 };
 
 // Font dict
+// if build to js it will working
 export const fontDict = {
   dict: {} as Record<string, Record<string, string>>,
 };
