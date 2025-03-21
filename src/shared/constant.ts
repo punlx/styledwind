@@ -221,13 +221,3 @@ export const abbrMap = {
   iso: 'isolation',
   ct: 'content',
 } as const;
-
-// Breakpoints dict
-export const breakpoints = {
-  dict: {} as Record<string, string>,
-};
-
-// Font dict
-export const fontDict = {
-  dict: {} as Record<string, string>,
-};

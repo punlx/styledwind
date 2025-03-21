@@ -1,5 +1,5 @@
 // src/client/theme.ts
-import { abbrMap, breakpoints, fontDict } from '../../src/shared/constant';
+import { abbrMap } from '../../src/shared/constant';
 import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
 
@@ -8,6 +8,15 @@ let cachedPaletteCSS = '';
 let cachedKeyframeCSS = '';
 let cachedSpacingCSS = '';
 
+// Breakpoints dict
+export const breakpoints = {
+  dict: {} as Record<string, string>,
+};
+
+// Font dict
+export const fontDict = {
+  dict: {} as Record<string, string>,
+};
 function ensureThemeStyleElement() {
   if (!themeStyleEl) {
     themeStyleEl = document.getElementById('styledwind-theme') as HTMLStyleElement;

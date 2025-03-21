@@ -1,5 +1,6 @@
 // src/shared/parseStyles.ts
-import { abbrMap, breakpoints, fontDict } from './constant';
+import { breakpoints, fontDict } from '../client/theme';
+import { abbrMap } from './constant';
 
 export interface IStyleDefinition {
   base: Record<string, string>;
