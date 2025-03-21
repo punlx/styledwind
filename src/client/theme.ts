@@ -212,7 +212,7 @@ export const theme = {
     return {
       swtich: (mode: string) => setTheme(mode, modes),
       modes,
-      currentMode,
+      getCurrentMode: () => localStorage.getItem('styledwind-theme'),
     };
   },
 
