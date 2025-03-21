@@ -14,7 +14,7 @@ import { IStyleDefinition } from '../shared/parseStyles';
  *  => --c-app_box-hover
  *  => --bg-app_box-after
  */
-export function transformVariables(
+export function transFormVariables(
   styleDef: IStyleDefinition,
   scopeName: string,
   className: string
