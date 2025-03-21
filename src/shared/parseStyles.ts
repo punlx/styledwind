@@ -166,16 +166,28 @@ export function parseScreenStyle(abbrLine: string, styleDef: IStyleDefinition) {
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
 
+    // เรียก expandFontIfNeeded
     const expansions = expandFontIfNeeded(abbr, val);
     for (const ex of expansions) {
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
 
-      const cProp = abbrMap[abbr2 as keyof typeof abbrMap];
-      if (!cProp) {
-        throw new Error(`"${abbr2}" not found in abbrMap.`);
+      // ถ้า abbr2 === 'f' → ไปดึง fontDict
+      if (abbr2 === 'f') {
+        const dictEntry = fontDict.dict[val2] as Record<string, string> | undefined;
+        if (!dictEntry) {
+          throw new Error(`"${val2}" not found in theme.font(...) dict (screen).`);
+        }
+        for (const [cssProp2, cssVal2] of Object.entries(dictEntry)) {
+          screenProps[cssProp2] = convertCSSVariable(cssVal2);
+        }
+      } else {
+        const cProp = abbrMap[abbr2 as keyof typeof abbrMap];
+        if (!cProp) {
+          throw new Error(`"${abbr2}" not found in abbrMap.`);
+        }
+        screenProps[cProp] = convertCSSVariable(val2);
       }
-      screenProps[cProp] = convertCSSVariable(val2);
     }
   }
 
@@ -228,11 +240,22 @@ export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
 
-      const cProp2 = abbrMap[abbr2 as keyof typeof abbrMap];
-      if (!cProp2) {
-        throw new Error(`"${abbr2}" not found in abbrMap.`);
+      // ตรวจ f[...] เช่นกัน
+      if (abbr2 === 'f') {
+        const dictEntry = fontDict.dict[val2] as Record<string, string> | undefined;
+        if (!dictEntry) {
+          throw new Error(`"${val2}" not found in theme.font(...) dict (container).`);
+        }
+        for (const [cssProp2, cssVal2] of Object.entries(dictEntry)) {
+          containerProps[cssProp2] = convertCSSVariable(cssVal2);
+        }
+      } else {
+        const cProp2 = abbrMap[abbr2 as keyof typeof abbrMap];
+        if (!cProp2) {
+          throw new Error(`"${abbr2}" not found in abbrMap.`);
+        }
+        containerProps[cProp2] = convertCSSVariable(val2);
       }
-      containerProps[cProp2] = convertCSSVariable(val2);
     }
   }
 
@@ -244,7 +267,7 @@ export function parseContainerStyle(abbrLine: string, styleDef: IStyleDefinition
 
 /**
  * pseudoName = "before" หรือ "after"
- * abbrLine อาจเป็น something แบบ "after(ct['after'] $bg[yellow] c[blue])"
+ * abbrLine อาจเป็น something แบบ "after(ct['after'] $bg[yellow] c[blue] f[tx-content])"
  */
 export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const openParenIdx = abbrLine.indexOf('(');
@@ -262,32 +285,44 @@ export function parsePseudoElementStyle(abbrLine: string, styleDef: IStyleDefini
   styleDef.varPseudos[pseudoName] = styleDef.varPseudos[pseudoName] || {};
 
   for (const p of propsInPseudo) {
-    // แยกเป็น abbr + value จากรูปแบบ abbr[val]
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
 
-    // เรียก expandFontIfNeeded() เผื่อเจอ f[...] หรือ font key
-    // จะได้ array ของ sub-abbr เช่น ["fs[22px]", "fw[500]", ...]
-    // ถ้าไม่ใช่ f => ก็จะเป็น [ "bg[red]" ] ธรรมดา
-    const expansions = expandFontIfNeeded(abbr, val);
+    // ถ้าเป็น ct[...] => content
+    if (abbr === 'ct') {
+      result['content'] = `"${val}"`;
+      continue;
+    }
 
-    // วน parse แต่ละ expansion
+    // expand
+    const expansions = expandFontIfNeeded(abbr, val);
     for (const ex of expansions) {
-      // ex จะเป็นรูป "fs[22px]" หรือ "c[white]" ฯลฯ
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
 
-      // เช็คว่าเป็น $variable หรือไม่
       const isVariable = abbr2.startsWith('$');
       const realAbbr = isVariable ? abbr2.slice(1) : abbr2;
 
-      // หา property map จาก abbrMap เช่น fs => "font-size", c => "color", ...
+      // กรณีเจอ f[...] => ดึงจาก fontDict
+      if (realAbbr === 'f') {
+        const dictEntry = fontDict.dict[val2] as Record<string, string> | undefined;
+        if (!dictEntry) {
+          throw new Error(
+            `[SWD-ERR] Font key "${val2}" not found in theme.font(...) dict for pseudo ${pseudoName}.`
+          );
+        }
+        for (const [cssProp2, cssVal2] of Object.entries(dictEntry)) {
+          result[cssProp2] = convertCSSVariable(cssVal2);
+        }
+        continue;
+      }
+
+      // หา property map จาก abbrMap เช่น bg => "background-color", c => "color", ...
       const cProp = abbrMap[realAbbr as keyof typeof abbrMap];
       if (!cProp) {
         throw new Error(`"${realAbbr}" not found in abbrMap for pseudo-element ${pseudoName}.`);
       }
 
-      // แปลงค่า (ถ้ามี --var)
       const finalVal = convertCSSVariable(val2);
 
       if (isVariable) {
@@ -325,6 +360,21 @@ export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
 
       const isVariable = abbr2.startsWith('$');
       const realAbbr = isVariable ? abbr2.slice(1) : abbr2;
+
+      // ถ้าเจอ f[...] => fontDict
+      if (realAbbr === 'f') {
+        const dictEntry = fontDict.dict[val2] as Record<string, string> | undefined;
+        if (!dictEntry) {
+          throw new Error(
+            `[SWD-ERR] Font key "${val2}" not found in theme.font(...) dict for state ${funcName}.`
+          );
+        }
+        for (const [cssProp2, cssVal2] of Object.entries(dictEntry)) {
+          result[cssProp2] = convertCSSVariable(cssVal2);
+        }
+        continue;
+      }
+
       const cProp = abbrMap[realAbbr as keyof typeof abbrMap];
       if (!cProp) {
         throw new Error(`"${realAbbr}" not found in abbrMap for state ${funcName}.`);
