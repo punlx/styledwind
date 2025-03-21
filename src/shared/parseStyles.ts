@@ -401,21 +401,38 @@ export function parseStateStyle(abbrLine: string, styleDef: IStyleDefinition) {
 }
 
 export function parseSingleAbbr(abbrLine: string, styleDef: IStyleDefinition) {
-  const openParenIdx = abbrLine.indexOf('(');
-  if (openParenIdx === -1) {
-    parseBaseStyle(abbrLine, styleDef);
+  const trimmed = abbrLine.trim();
+
+  // 1) เช็ค screen(...)
+  if (trimmed.startsWith('screen(')) {
+    parseScreenStyle(trimmed, styleDef);
     return;
   }
-  const funcName = abbrLine.slice(0, openParenIdx).trim();
-  if (funcName === 'screen') {
-    parseScreenStyle(abbrLine, styleDef);
-  } else if (funcName === 'container') {
-    parseContainerStyle(abbrLine, styleDef);
-  } else if (funcName === 'before' || funcName === 'after') {
-    parsePseudoElementStyle(abbrLine, styleDef);
-  } else {
-    parseStateStyle(abbrLine, styleDef);
+
+  // 2) เช็ค container(...)
+  if (trimmed.startsWith('container(')) {
+    parseContainerStyle(trimmed, styleDef);
+    return;
   }
+
+  // 3) เช็ค pseudo element before(...), after(...)
+  if (trimmed.startsWith('before(') || trimmed.startsWith('after(')) {
+    parsePseudoElementStyle(trimmed, styleDef);
+    return;
+  }
+
+  // 4) เช็ค state (ตัวอย่าง: hover, focus, active, disabled, ...)
+  const knownStates = ['hover', 'focus', 'active', 'focus-within', 'focus-visible', 'target'];
+  for (const st of knownStates) {
+    if (trimmed.startsWith(st + '(')) {
+      parseStateStyle(trimmed, styleDef);
+      return;
+    }
+  }
+
+  // 5) ถ้าไม่เข้าเงื่อนไขด้านบน => parse เป็น base style
+  //    (รองรับ h[calc(100%-24px)], bg[linear-gradient(...)], ฯลฯ)
+  parseBaseStyle(trimmed, styleDef);
 }
 
 export function parseClassDefinition(abbrStyle: string): IStyleDefinition {
