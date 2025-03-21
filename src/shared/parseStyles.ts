@@ -52,27 +52,45 @@ export function convertCSSVariable(value: string) {
 }
 
 function expandFontIfNeeded(abbr: string, propValue: string): string[] {
-  if (abbr !== 'f') {
-    return [`${abbr}[${propValue}]`];
-  }
-  const expansion = fontDict.dict[propValue];
-  if (!expansion) {
-    throw new Error(`[SWD] Font key "${propValue}" not found in theme.font(...) dict.`);
-  }
-  const tokens = expansion.split(' ');
-  for (const t of tokens) {
-    if (t.includes('(')) {
-      throw new Error(`[SWD] Not allowed nested syntax in font expansion: ${t}`);
-    }
-  }
-  return tokens;
+  return [`${abbr}[${propValue}]`];
 }
 
+/**
+ * parseBaseStyle:
+ * - รับบรรทัด abbr เดี่ยว ๆ (เช่น "bg[red]", "f[tx-content]", "$c[blue]", ...)
+ * - ใส่ผลลัพธ์ลงใน styleDef.base
+ */
 export function parseBaseStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const [styleAbbr, propValue] = separateStyleAndProperties(abbrLine);
   if (!styleAbbr) return;
 
+  // -------------------------------------------------
+  // 1) ถ้าเจอ f[...] (เรียกใช้ theme.font)
+  //    => ไปดึง object { 'font-size': '22px', 'font-weight': '500', ... }
+  //    => ใส่ลง styleDef.base ได้เลย
+  // -------------------------------------------------
+  if (styleAbbr === 'f') {
+    console.log('parseStyles.ts:73 |fontDict| : ', fontDict);
+    const dictEntry = fontDict.dict[propValue] as Record<string, string> | undefined;
+    if (!dictEntry) {
+      throw new Error(
+        `[SWD-ERR] Font key "${propValue}" not found in theme.font(...) dict. (f[${propValue}])`
+      );
+    }
+    // ใส่แต่ละ prop ลง base
+    for (const [cssProp, cssVal] of Object.entries(dictEntry)) {
+      // convertCSSVariable() จะ replace '--xxx' ด้วย var(--xxx) ถ้ามี
+      styleDef.base[cssProp] = convertCSSVariable(cssVal);
+    }
+    return;
+  }
+
+  // -------------------------------------------------
+  // 2) กรณีอื่น ๆ อาจมีการขยาย (expandFontIfNeeded)
+  //    (ถ้าไม่ได้ใช้แล้ว สามารถลบส่วนนี้ทิ้งได้)
+  // -------------------------------------------------
   const expansions = expandFontIfNeeded(styleAbbr, propValue);
+  // ถ้ามี expansions หลายตัว (หรือแตกต่าง) ให้วน parse ซ้ำ
   if (expansions.length > 1 || expansions[0] !== `${styleAbbr}[${propValue}]`) {
     for (const ex of expansions) {
       parseBaseStyle(ex, styleDef);
@@ -80,10 +98,9 @@ export function parseBaseStyle(abbrLine: string, styleDef: IStyleDefinition) {
     return;
   }
 
-  if (styleAbbr === 'f') {
-    return;
-  }
-
+  // -------------------------------------------------
+  // 3) กรณีเป็น abbr ปกติ (ไม่ใช่ f[...] และไม่ต้องขยาย)
+  // -------------------------------------------------
   const isVariable = styleAbbr.startsWith('$');
   const realAbbr = isVariable ? styleAbbr.slice(1) : styleAbbr;
 
@@ -95,12 +112,15 @@ export function parseBaseStyle(abbrLine: string, styleDef: IStyleDefinition) {
   const finalVal = convertCSSVariable(propValue);
 
   if (isVariable) {
+    // ถ้าเป็น $variable -> เก็บใน varBase ไว้ใช้ตอน transformVariables
     if (!styleDef.varBase) {
       styleDef.varBase = {};
     }
     styleDef.varBase[realAbbr] = finalVal;
+    // ใส่ placeholder ใน base
     styleDef.base[cssProp] = `var(--${realAbbr})`;
   } else {
+    // case ปกติ: ใส่ค่าโดยตรง
     styleDef.base[cssProp] = finalVal;
   }
 }

@@ -2,6 +2,7 @@
 import { abbrMap } from '../../src/shared/constant';
 import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
+import { separateStyleAndProperties } from '../shared/parseStyles';
 
 let themeStyleEl: HTMLStyleElement | null = null;
 let cachedPaletteCSS = '';
@@ -15,8 +16,9 @@ export const breakpoints = {
 
 // Font dict
 export const fontDict = {
-  dict: {} as Record<string, string>,
+  dict: {} as Record<string, Record<string, string>>,
 };
+
 function ensureThemeStyleElement() {
   if (!themeStyleEl) {
     themeStyleEl = document.getElementById('styledwind-theme') as HTMLStyleElement;
@@ -195,6 +197,37 @@ function generateSpacingCSS(spacingMap: Record<string, string>): string {
   return rootBlock ? `:root{${rootBlock}}` : '';
 }
 
+/**
+ * parseFontDefinition:
+ *  - รับสตริง เช่น "fs[22px] fw[500] fm[Sarabun-Bold]"
+ *  - แตกเป็น token แล้ว mapping เป็นรูป { "font-size": "22px", "font-weight": "500", ... }
+ *  - ถ้าเจอ $variable → throw error (ตามเงื่อนไข)
+ */
+function parseFontDefinition(def: string): Record<string, string> {
+  // แยกเป็น token: ["fs[22px]", "fw[500]", "fm[Sarabun-Bold]"]
+  const tokens = def.split(/\s+/).filter(Boolean);
+  const result: Record<string, string> = {};
+
+  for (const token of tokens) {
+    const [abbr, rawVal] = separateStyleAndProperties(token);
+    if (!abbr) continue;
+
+    // ไม่อนุญาตให้ใช้ $variable ใน font
+    if (abbr.startsWith('$')) {
+      throw new Error(`[SWD-ERR] $variable is not allowed in theme.font: "${token}"`);
+    }
+
+    // map abbr -> CSS property (เช่น fs -> "font-size", fw -> "font-weight", ฯลฯ)
+    const mappedProp = abbrMap[abbr as keyof typeof abbrMap];
+    if (!mappedProp) {
+      throw new Error(`[SWD-ERR] Unknown font abbr "${abbr}" in theme.font(...) definition.`);
+    }
+    // เก็บเป็น key-value ตรง ๆ
+    result[mappedProp] = rawVal;
+  }
+  return result;
+}
+
 export const theme = {
   screen(breakpointList: Record<string, string>) {
     breakpoints.dict = breakpointList;
@@ -226,7 +259,19 @@ export const theme = {
   },
 
   font(fontMap: Record<string, string>) {
-    fontDict.dict = fontMap;
+    /**
+     * theme.font() (ใหม่):
+     *  - รับ fontMap: { "tx-content": "fs[22px] fw[500] fm[Sarabun-Bold]", ... }
+     *  - แปลงล่วงหน้าเป็น { "font-size": "22px", "font-weight": "500", ... } แล้วเก็บใน fontDict
+     */
+    const processed: Record<string, Record<string, string>> = {};
+    for (const key in fontMap) {
+      const definition = fontMap[key];
+      // parse ล่วงหน้า → ได้ object ของ CSS props
+      processed[key] = parseFontDefinition(definition);
+    }
+    // เก็บลง fontDict (type เป็น Record<string, Record<string, string>>)
+    fontDict.dict = processed;
   },
 
   keyframe(keyframeMap: Record<string, string>) {
