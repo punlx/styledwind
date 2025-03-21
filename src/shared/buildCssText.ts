@@ -3,10 +3,11 @@
 import { IStyleDefinition } from './parseStyles';
 
 /**
- * ฟังก์ชันเดิมที่ใช้สร้าง CSS text ของ class เดียว
- * (จะคืนค่าเป็นสตริง .className { ... } + pseudo + @media ... รวมเป็นก้อนเดียว)
+ * buildCssText:
+ * - รวม :root vars, local var, base, states, screens, containers, pseudos
  */
 export function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
+
   let cssText = '';
 
   // 1) root vars
@@ -20,12 +21,25 @@ export function buildCssText(displayName: string, styleDef: IStyleDefinition): s
     }
   }
 
-  // 2) base
+  // 2) base + local var
+  let baseProps = '';
+
+  // (A) local var
+  const localVars = (styleDef as any)._resolvedLocalVars as Record<string, string> | undefined;
+  if (localVars) {
+    for (const localVarName in localVars) {
+      baseProps += `${localVarName}:${localVars[localVarName]};`;
+    }
+  }
+
+  // (B) base property
   if (Object.keys(styleDef.base).length > 0) {
-    let baseProps = '';
     for (const prop in styleDef.base) {
       baseProps += `${prop}:${styleDef.base[prop]};`;
     }
+  }
+
+  if (baseProps) {
     cssText += `.${displayName}{${baseProps}}`;
   }
 
@@ -39,7 +53,7 @@ export function buildCssText(displayName: string, styleDef: IStyleDefinition): s
     cssText += `.${displayName}:${state}{${props}}`;
   }
 
-  // 4) screens (@media)
+  // 4) screens
   for (const scr of styleDef.screens) {
     let props = '';
     for (const p in scr.props) {
@@ -48,7 +62,7 @@ export function buildCssText(displayName: string, styleDef: IStyleDefinition): s
     cssText += `@media only screen and ${scr.query}{.${displayName}{${props}}}`;
   }
 
-  // 5) containers (@container)
+  // 5) containers
   for (const ctnr of styleDef.containers) {
     let props = '';
     for (const p in ctnr.props) {
@@ -57,7 +71,7 @@ export function buildCssText(displayName: string, styleDef: IStyleDefinition): s
     cssText += `@container ${ctnr.query}{.${displayName}{${props}}}`;
   }
 
-  // 6) pseudos (::before / ::after)
+  // 6) pseudos
   if (styleDef.pseudos.before) {
     let beforeProps = '';
     for (const p in styleDef.pseudos.before) {
