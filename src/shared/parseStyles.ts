@@ -70,7 +70,6 @@ export function parseBaseStyle(abbrLine: string, styleDef: IStyleDefinition) {
   //    => ใส่ลง styleDef.base ได้เลย
   // -------------------------------------------------
   if (styleAbbr === 'f') {
-    console.log('parseStyles.ts:73 |fontDict| : ', fontDict);
     const dictEntry = fontDict.dict[propValue] as Record<string, string> | undefined;
     if (!dictEntry) {
       throw new Error(
