@@ -5,7 +5,7 @@ import { insertedRulesMap, IInsertedRules } from './constant';
 import { insertCSSRules } from './insertCSSRules';
 import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
-import { transformVariables } from './transformVariables';
+import { transFormVariables } from './transFormVariables';
 /**
  * processOneClass:
  * - รับ className + styleDef (parse+merge แล้ว) + scopeName
@@ -33,7 +33,7 @@ export function processOneClass(
   const displayName = `${scopeName}_${className}`;
 
   // TransformStream => แทนที่ $variable => var(--xxx-scope_class)
-  transformVariables(styleDef, scopeName, className);
+  transFormVariables(styleDef, scopeName, className);
 
   // Insert CSS: ถ้า SSR => serverStyleSheet, ถ้า CSR => insertCSSRules
   if (isServer) {
