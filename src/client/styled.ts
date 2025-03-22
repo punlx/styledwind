@@ -1,13 +1,11 @@
 // src/client/styled.ts
 
 import { parseDirectivesAndClasses } from './parseDirectives';
-import {
-  attachGetMethod,
-  ensureScopeUnique,
-  extractScope,
-  handleBindDirectives,
-  processClassBlocks,
-} from './styledUtils';
+import { ensureScopeUnique } from './styledUtils/ensureScopeUnique';
+import { extractScope } from './styledUtils/extractScope';
+import { handleBindDirectives } from './styledUtils/handleBindDirectives';
+import { processClassBlocks } from './styledUtils/processClassBlocks';
+import { attachGetMethod } from './styledUtils/scheduleFlush';
 
 export type StyledResult<T extends Record<string, string[]>> = {
   [K in keyof T]: string; // map className -> final string e.g. "scope_class"
