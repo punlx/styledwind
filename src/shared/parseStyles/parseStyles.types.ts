@@ -1,4 +1,11 @@
+// ================================================
 // src/shared/parseStyles/parseStyles.types.ts
+// ================================================
+
+export interface IQueryBlock {
+  selector: string;
+  styleDef: IStyleDefinition;
+}
 
 export interface IStyleDefinition {
   base: Record<string, string>;
@@ -14,7 +21,6 @@ export interface IStyleDefinition {
   pseudos: {
     [key: string]: Record<string, string> | undefined;
   };
-
   varStates?: {
     [stateName: string]: Record<string, string>;
   };
@@ -22,9 +28,11 @@ export interface IStyleDefinition {
   varPseudos?: {
     [key: string]: Record<string, string>;
   };
-
   rootVars?: Record<string, string>;
-
-  // ฟิลด์ใหม่สำหรับ local var
   localVars?: Record<string, string>;
+
+  /**
+   * ฟิลด์ใหม่สำหรับ nested query
+   */
+  queries?: IQueryBlock[];
 }

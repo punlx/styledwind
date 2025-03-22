@@ -1,5 +1,6 @@
+// ======================================================
 // src/client/processOneClass.ts
-
+// ======================================================
 import { insertedRulesMap, IInsertedRules } from './constant';
 import { insertCSSRules } from './insertCSSRules';
 import { isServer } from '../server/constant';
@@ -34,7 +35,23 @@ export function processOneClass(
   // 2) transformLocalVariables => --$xxx
   transformLocalVariables(styleDef, scopeName, className);
 
-  // 3) insert CSS
+  // *** ใหม่: transform ใน queries
+  if (styleDef.queries && styleDef.queries.length > 0) {
+    for (const qb of styleDef.queries) {
+      // ถ้าอยากให้ query block เห็น localVars ของ parent:
+      // copy localVars ของ class หลักไปใส่ใน qb.styleDef
+      if (!qb.styleDef.localVars) {
+        qb.styleDef.localVars = {};
+      }
+      Object.assign(qb.styleDef.localVars, styleDef.localVars);
+
+      // จากนั้น transform var
+      transFormVariables(qb.styleDef, scopeName, className);
+      transformLocalVariables(qb.styleDef, scopeName, className);
+    }
+  }
+
+  // 3) insert CSS (SSR หรือ Client)
   if (isServer) {
     serverStyleSheet().insertCSSRules(displayName, styleDef);
   } else {

@@ -1,43 +1,44 @@
+// ================================================
 // src/shared/parseStyles/parseSingleAbbr.ts
-
+// ================================================
 import { parseBaseStyle } from './parseBaseStyle';
 import { parseContainerStyle } from './parseContainerStyle';
 import { parsePseudoElementStyle } from './parsePseudoElementStyle';
 import { parseScreenStyle } from './parseScreenStyle';
 import { parseStateStyle } from './parseStateStyle';
 import { IStyleDefinition } from './parseStyles.types';
-
-/**
- * parseSingleAbbr:
- * - parse directive "screen(...)", "container(...)", "hover(...)" ฯลฯ
- * - ถ้าไม่เข้า => parseBaseStyle
- */
 export function parseSingleAbbr(
   abbrLine: string,
   styleDef: IStyleDefinition,
-  isConstContext: boolean = false
+  isConstContext: boolean = false,
+  isQueryBlock: boolean = false
 ) {
   const trimmed = abbrLine.trim();
-
-  // 1) screen(...)
+  if (isQueryBlock && trimmed.startsWith('@query')) {
+    throw new Error(`[SWD-ERR] Nested @query is not allowed.`);
+  }
+  if (isQueryBlock) {
+    if (/^--\$[\w-]+\[/.test(trimmed)) {
+      throw new Error(`[SWD-ERR] Local var not allowed inside @query block. Found: "${trimmed}"`);
+    }
+    if (/^\$[\w-]+\[/.test(trimmed)) {
+      throw new Error(
+        `[SWD-ERR] Runtime variable ($var) not allowed inside @query block. Found: "${trimmed}"`
+      );
+    }
+  }
   if (trimmed.startsWith('screen(')) {
     parseScreenStyle(trimmed, styleDef, isConstContext);
     return;
   }
-
-  // 2) container(...)
   if (trimmed.startsWith('container(')) {
     parseContainerStyle(trimmed, styleDef, isConstContext);
     return;
   }
-
-  // 3) pseudo element before(...), after(...)
   if (trimmed.startsWith('before(') || trimmed.startsWith('after(')) {
     parsePseudoElementStyle(trimmed, styleDef, isConstContext);
     return;
   }
-
-  // 4) state
   const knownStates = [
     'hover',
     'focus',
@@ -53,7 +54,5 @@ export function parseSingleAbbr(
       return;
     }
   }
-
-  // 5) base style
-  parseBaseStyle(trimmed, styleDef, isConstContext);
+  parseBaseStyle(trimmed, styleDef, isConstContext, isQueryBlock);
 }

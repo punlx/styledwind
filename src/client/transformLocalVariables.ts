@@ -1,5 +1,6 @@
+// ======================================================
 // src/client/transformLocalVariables.ts
-
+// ======================================================
 import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
 
 /**

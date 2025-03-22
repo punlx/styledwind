@@ -1,8 +1,11 @@
-// src/client/parseDirectives.ts
+// =====================================================
+// src/client/parseDirectives.ts (ฉบับแก้ไขรองรับ @query ซ้อนใน .class)
+// =====================================================
 
 import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
 import { createEmptyStyleDef } from '../shared/parseStyles/parseStylesUtils';
 import { parseSingleAbbr } from '../shared/parseStyles/parseSingleAbbr';
+
 /**
  * โครงสร้างเก็บ Directive ที่ parse ได้ (เช่น @scope, @bind)
  */
@@ -44,8 +47,8 @@ export interface IParseResult {
 /**
  * parseDirectivesAndClasses:
  * - ดึง @const <name> { ... } ออกมาก่อน (แล้ว parse บรรทัดข้างในเป็น partial styleDef)
- * - ดึง top-level directive (@scope, @bind ฯลฯ) แต่ข้าม @use
- * - ดึง block .classname { ... } (ภายในอาจมี @use)
+ * - ดึง top-level directive (@scope, @bind ฯลฯ) แต่ข้าม @use, @query
+ * - ดึง block .className { ... } (ภายในอาจมี @use หรือ @query ... แบบ nested brace)
  */
 export function parseDirectivesAndClasses(text: string): IParseResult {
   const directives: IParsedDirective[] = [];
@@ -68,12 +71,14 @@ export function parseDirectivesAndClasses(text: string): IParseResult {
       throw new Error(`[SWD-ERR] Duplicate @const name "${constName}".`);
     }
 
+    // ภายใน @const ไม่อนุญาต directive (@use, @const, @scope, @bind)
     if (/(@use|@const|@scope|@bind)/.test(rawBlock)) {
       throw new Error(
         `[SWD-ERR] Not allowed directive (@use/@const/@scope/@bind) inside @const "${constName}".`
       );
     }
 
+    // parse บรรทัดภายใน @const -> partial styleDef
     const partialStyleDef = createEmptyStyleDef();
     const lines = rawBlock
       .split('\n')
@@ -93,7 +98,7 @@ export function parseDirectivesAndClasses(text: string): IParseResult {
   }
 
   // -------------------------------------------------
-  // 2) หา directive Top-Level (@scope, @bind) ยกเว้น @use
+  // 2) หา directive Top-Level (@scope, @bind) ยกเว้น @use, @query
   // -------------------------------------------------
   const directiveRegex = /^[ \t]*@([\w-]+)\s+([^\r\n]+)/gm;
   let match: RegExpExecArray | null;
@@ -103,29 +108,70 @@ export function parseDirectivesAndClasses(text: string): IParseResult {
     const dirName = match[1];
     const dirValue = match[2].trim();
 
-    if (dirName === 'use') {
-      // ข้าม
+    // กรณี @use, @query -> ข้าม (ไม่ลบออกจาก newText)
+    if (dirName === 'use' || dirName === 'query') {
       continue;
     }
 
+    // อื่น ๆ เช่น @scope, @bind
     directives.push({ name: dirName, value: dirValue });
 
+    // ตัด directive ที่พบออกไปจาก newText
     newText = newText.replace(match[0], '').trim();
     directiveRegex.lastIndex = 0;
   }
 
   // -------------------------------------------------
-  // 3) parse block .className { ... }
+  // 3) parse block .className { ... } พร้อมรองรับ nested braces
   // -------------------------------------------------
-  const classBlockRegex = /\.([\w-]+)\s*\{([\s\S]*?)\}/g;
-  let cbMatch: RegExpExecArray | null;
-
-  while ((cbMatch = classBlockRegex.exec(newText)) !== null) {
-    const cName = cbMatch[1];
-    const cBody = cbMatch[2].trim();
-
-    classBlocks.push({ className: cName, body: cBody });
+  const blocks = parseClassBlocksWithBraceCounting(newText);
+  for (const blk of blocks) {
+    classBlocks.push(blk);
   }
 
   return { directives, classBlocks, constBlocks };
+}
+
+/**
+ * parseClassBlocksWithBraceCounting:
+ * - หา pattern ".className {" ด้วย regex
+ * - จากนั้น “นับ” จำนวนปีกกา { } ไปเรื่อย ๆ จนกว่าจะเจอคู่ปิด
+ * - slice substring ภายในนั้นมาเป็น body
+ * - รองรับกรณีมี { } ซ้อน (เช่น @query {...})
+ */
+function parseClassBlocksWithBraceCounting(text: string): IClassBlock[] {
+  const result: IClassBlock[] = [];
+
+  // regex จับชื่อ class => .<className>{
+  // แล้วใช้ brace counting เพื่อหา "}" ที่แท้จริง
+  const pattern = /\.([\w-]+)\s*\{/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    const className = match[1];
+    // ตำแหน่งหลัง `{`
+    const startIndex = pattern.lastIndex;
+    let braceCount = 1;
+    let i = startIndex;
+    for (; i < text.length; i++) {
+      if (text[i] === '{') {
+        braceCount++;
+      } else if (text[i] === '}') {
+        braceCount--;
+      }
+      if (braceCount === 0) {
+        // เจอจุดปิด block แล้ว
+        break;
+      }
+    }
+    // i คือ index ของ '}' สุดท้าย
+    const body = text.slice(startIndex, i).trim();
+
+    result.push({
+      className,
+      body,
+    });
+  }
+
+  return result;
 }
