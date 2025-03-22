@@ -1,4 +1,4 @@
-// src/shared/parseStyles/parseStyles.ts
+// src/shared/parseStyles/parseStyles.types.ts
 
 export interface IStyleDefinition {
   base: Record<string, string>;
