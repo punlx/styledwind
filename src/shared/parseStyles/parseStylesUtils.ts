@@ -1,4 +1,4 @@
-// src/shared/parseStylesUtils.ts
+// src/shared/parseStyles/parseStylesUtils.ts
 
 import { IStyleDefinition } from './parseStyles.types';
 

@@ -1,4 +1,4 @@
-// src/shared/parseContainerStyle.ts
+// src/shared/parseStyles/parseContainerStyle.ts
 
 import { breakpoints, fontDict } from '../../client/theme';
 import { abbrMap } from '../constant';

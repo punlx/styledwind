@@ -1,4 +1,4 @@
-// src/shared/parsePseudoElementStyle.ts
+// src/shared/parseStyles/parsePseudoElementStyle.ts
 
 import { fontDict } from '../../client/theme';
 import { abbrMap } from '../constant';

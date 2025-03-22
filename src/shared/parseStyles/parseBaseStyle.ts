@@ -1,14 +1,13 @@
+// src/shared/parseStyles/parseBaseStyle.ts.ts
+import { fontDict } from '../../client/theme';
+import { abbrMap } from '../constant';
+import { IStyleDefinition } from './parseStyles.types';
+import { convertCSSVariable, separateStyleAndProperties } from './parseStylesUtils';
 /**
  * parseSingleAbbr:
  * - parse directive "screen(...)", "container(...)", "hover(...)" ฯลฯ
  * - ถ้าไม่เข้า => parseBaseStyle
  */
-
-import { fontDict } from '../../client/theme';
-import { abbrMap } from '../constant';
-import { IStyleDefinition } from './parseStyles.types';
-import { convertCSSVariable, separateStyleAndProperties } from './parseStylesUtils';
-
 // ---------------------------------------------------------
 // parseBaseStyle
 // ---------------------------------------------------------
