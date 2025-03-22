@@ -1,7 +1,8 @@
 // src/client/parseDirectives.ts
 
-import { IStyleDefinition, createEmptyStyleDef, parseSingleAbbr } from '../shared/parseStyles';
-
+import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
+import { createEmptyStyleDef } from '../shared/parseStyles/parseStylesUtils';
+import { parseSingleAbbr } from '../shared/parseStyles/parseSingleAbbr';
 /**
  * โครงสร้างเก็บ Directive ที่ parse ได้ (เช่น @scope, @bind)
  */
@@ -47,7 +48,6 @@ export interface IParseResult {
  * - ดึง block .classname { ... } (ภายในอาจมี @use)
  */
 export function parseDirectivesAndClasses(text: string): IParseResult {
-
   const directives: IParsedDirective[] = [];
   const classBlocks: IClassBlock[] = [];
   const constBlocks: IConstBlock[] = [];
@@ -63,7 +63,6 @@ export function parseDirectivesAndClasses(text: string): IParseResult {
   while ((constMatch = constRegex.exec(newText)) !== null) {
     const constName = constMatch[1];
     const rawBlock = constMatch[2];
-
 
     if (constBlocks.find((c) => c.name === constName)) {
       throw new Error(`[SWD-ERR] Duplicate @const name "${constName}".`);
@@ -109,7 +108,6 @@ export function parseDirectivesAndClasses(text: string): IParseResult {
       continue;
     }
 
-
     directives.push({ name: dirName, value: dirValue });
 
     newText = newText.replace(match[0], '').trim();
@@ -128,7 +126,6 @@ export function parseDirectivesAndClasses(text: string): IParseResult {
 
     classBlocks.push({ className: cName, body: cBody });
   }
-
 
   return { directives, classBlocks, constBlocks };
 }

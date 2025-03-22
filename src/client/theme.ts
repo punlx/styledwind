@@ -2,7 +2,7 @@
 import { abbrMap } from '../../src/shared/constant';
 import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
-import { separateStyleAndProperties } from '../shared/parseStyles';
+import { separateStyleAndProperties } from '../shared/parseStyles/parseStylesUtils';
 
 let themeStyleEl: HTMLStyleElement | null = null;
 let cachedPaletteCSS = '';

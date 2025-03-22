@@ -1,7 +1,7 @@
 // /src/server/serverSheet.ts
 
-import { IStyleDefinition } from '../shared/parseStyles';
 import { buildCssText } from '../shared/buildCssText';
+import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
 
 /**
  * คลาสเลียนแบบแนวทาง styled-components:

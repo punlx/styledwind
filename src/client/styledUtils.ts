@@ -1,7 +1,9 @@
 // src/client/styledUtils.ts
 
+import { parseSingleAbbr } from '../shared/parseStyles/parseSingleAbbr';
+import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
+import { createEmptyStyleDef } from '../shared/parseStyles/parseStylesUtils';
 import { IParsedDirective, IClassBlock } from './parseDirectives';
-import { IStyleDefinition, createEmptyStyleDef, parseSingleAbbr } from '../shared/parseStyles';
 import { processOneClass } from './processOneClass';
 
 // (อาจจะแยกเป็นไฟล์ styledVars หรือรวมในไฟล์นี้ก็ได้ ตามของเดิม)

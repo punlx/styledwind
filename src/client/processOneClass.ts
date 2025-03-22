@@ -1,12 +1,12 @@
 // src/client/processOneClass.ts
 
-import { IStyleDefinition } from '../shared/parseStyles';
 import { insertedRulesMap, IInsertedRules } from './constant';
 import { insertCSSRules } from './insertCSSRules';
 import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
 import { transFormVariables } from './transFormVariables';
 import { transformLocalVariables } from './transformLocalVariables';
+import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
 
 /**
  * processOneClass:
@@ -20,7 +20,6 @@ export function processOneClass(
   styleDef: IStyleDefinition,
   scopeName: string
 ): string {
-
   const key = `${scopeName}:${className}:${JSON.stringify(styleDef)}`;
   const cached = insertedRulesMap.get(key);
   if (cached) {

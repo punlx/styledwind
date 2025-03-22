@@ -1,13 +1,12 @@
 // src/shared/buildCssText.ts
 
-import { IStyleDefinition } from './parseStyles';
+import { IStyleDefinition } from './parseStyles/parseStyles.types';
 
 /**
  * buildCssText:
  * - รวม :root vars, local var, base, states, screens, containers, pseudos
  */
 export function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
-
   let cssText = '';
 
   // 1) root vars

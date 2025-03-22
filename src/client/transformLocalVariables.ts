@@ -1,6 +1,6 @@
 // src/client/transformLocalVariables.ts
 
-import { IStyleDefinition } from '../shared/parseStyles';
+import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
 
 /**
  * transformLocalVariables:
@@ -13,11 +13,9 @@ export function transformLocalVariables(
   scopeName: string,
   className: string
 ): void {
-
   if (!styleDef.localVars) {
     return;
   }
-
 
   // สร้าง map property
   const localVarProps: Record<string, string> = {};
@@ -74,5 +72,4 @@ export function transformLocalVariables(
 
   // เก็บไว้ใน styleDef => buildCssText ไปอ่าน
   (styleDef as any)._resolvedLocalVars = localVarProps;
-
 }
