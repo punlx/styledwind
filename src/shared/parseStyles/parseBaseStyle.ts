@@ -74,6 +74,11 @@ export function parseBaseStyle(
 
     // ถ้าเป็น $variable (varBase)
     if (isVariable) {
+      if (val2.startsWith('--&')) {
+        throw new Error(
+          `[SWD-ERR] Local var (--&xxx) is not allowed inside $variable usage. Got "${val2}"`
+        );
+      }
       if (!styleDef.varBase) {
         styleDef.varBase = {};
       }

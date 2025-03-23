@@ -60,6 +60,11 @@ export function parsePseudoElementStyle(
 
       // case $variable => varPseudos
       if (isVariable) {
+        if (val2.startsWith('--&')) {
+          throw new Error(
+            `[SWD-ERR] Local var (--&xxx) is not allowed inside $variable usage. Got "${val2}"`
+          );
+        }
         styleDef.varPseudos[pseudoName]![realAbbr] = finalVal;
         result[cProp] = `var(--${realAbbr}-${pseudoName})`;
       }

@@ -7,7 +7,9 @@ let rafScheduled = false;
 
 export function flushVars() {
   for (const [varName, val] of Object.entries(pendingVars)) {
-    document.documentElement.style.setProperty(varName, val);
+    if (document.documentElement.style.getPropertyValue(varName) !== val) {
+      document.documentElement.style.setProperty(varName, val);
+    }
   }
   for (const key in pendingVars) {
     delete pendingVars[key];
