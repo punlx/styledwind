@@ -5,8 +5,8 @@ import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
 
 /**
  * transformLocalVariables:
- * - สร้าง "--$xxx-scope_class" => value จาก localVars
- * - replace "LOCALVAR(xxx)" => "var(--$xxx-scope_class)"
+ * - สร้าง "--&xxx-scope_class" => value จาก localVars
+ * - replace "LOCALVAR(xxx)" => "var(--&xxx-scope_class)"
  * - เก็บ property ลงใน styleDef._resolvedLocalVars
  */
 export function transformLocalVariables(

@@ -63,8 +63,8 @@ export function parsePseudoElementStyle(
         styleDef.varPseudos[pseudoName]![realAbbr] = finalVal;
         result[cProp] = `var(--${realAbbr}-${pseudoName})`;
       }
-      // >>> เพิ่มตรวจสอบ local var reference (--$xxx) <<<
-      else if (val2.startsWith('--$')) {
+      // >>> เพิ่มตรวจสอบ local var reference (&xxx) <<<
+      else if (val2.startsWith('--&')) {
         const localVarRefName = val2.slice(3);
         result[cProp] = `LOCALVAR(${localVarRefName})`;
       } else {

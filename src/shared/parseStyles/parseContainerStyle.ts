@@ -73,8 +73,8 @@ export function parseContainerStyle(
           throw new Error(`"${abbr2}" not found in abbrMap.`);
         }
 
-        // >>> เพิ่ม logic ตรวจ --$ (local var)
-        if (val2.startsWith('--$')) {
+        // >>> เพิ่ม logic ตรวจ --& (local var)
+        if (val2.startsWith('--&')) {
           const localVarRefName = val2.slice(3);
           containerProps[cProp2] = `LOCALVAR(${localVarRefName})`;
         } else {

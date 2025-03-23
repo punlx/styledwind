@@ -64,7 +64,7 @@ export function parseStateStyle(
         result[cProp] = `var(--${realAbbr}-${funcName})`;
       }
       // >>> เพิ่ม logic local var reference (--$xxx) <<<
-      else if (val2.startsWith('--$')) {
+      else if (val2.startsWith('--&')) {
         const localVarRefName = val2.slice(3);
         result[cProp] = `LOCALVAR(${localVarRefName})`;
       } else {
