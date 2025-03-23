@@ -1,6 +1,6 @@
 {
   "name": "styledwindjs",
-  "version": "1.0.25-beta",
+  "version": "1.0.26",
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
