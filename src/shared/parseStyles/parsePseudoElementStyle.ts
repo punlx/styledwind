@@ -1,5 +1,6 @@
+// ================================================
 // src/shared/parseStyles/parsePseudoElementStyle.ts
-
+// ================================================
 import { fontDict } from '../../client/theme';
 import { abbrMap } from '../constant';
 import { IStyleDefinition } from './parseStyles.types';
@@ -13,30 +14,23 @@ export function parsePseudoElementStyle(
   const openParenIdx = abbrLine.indexOf('(');
   const pseudoName = abbrLine.slice(0, openParenIdx).trim() as 'before' | 'after';
   const inside = abbrLine.slice(openParenIdx + 1, -1).trim();
-
   const propsInPseudo = inside.split(/ (?=[^\[\]]*(?:\[|$))/);
-
   const result: Record<string, string> = styleDef.pseudos[pseudoName] || {};
   styleDef.varPseudos = styleDef.varPseudos || {};
   styleDef.varPseudos[pseudoName] = styleDef.varPseudos[pseudoName] || {};
-
   for (const p of propsInPseudo) {
     const [abbr, val] = separateStyleAndProperties(p);
     if (!abbr) continue;
-
     if (abbr === 'ct') {
       result['content'] = `"${val}"`;
       continue;
     }
-
     const expansions = [`${abbr}[${val}]`];
     for (const ex of expansions) {
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
-
       const isVariable = abbr2.startsWith('$');
       const realAbbr = isVariable ? abbr2.slice(1) : abbr2;
-
       if (realAbbr === 'f') {
         const dictEntry = fontDict.dict[val2] as Record<string, string> | undefined;
         if (!dictEntry) {
@@ -49,35 +43,24 @@ export function parsePseudoElementStyle(
         }
         continue;
       }
-
       const cProp = abbrMap[realAbbr as keyof typeof abbrMap];
       if (!cProp) {
         throw new Error(`"${realAbbr}" not found in abbrMap for pseudo-element ${pseudoName}.`);
       }
-
-      // convertCSSVariable
       const finalVal = convertCSSVariable(val2);
-
-      // case $variable => varPseudos
       if (isVariable) {
-        if (val2.startsWith('--&')) {
-          throw new Error(
-            `[SWD-ERR] Local var (--&xxx) is not allowed inside $variable usage. Got "${val2}"`
-          );
-        }
         styleDef.varPseudos[pseudoName]![realAbbr] = finalVal;
         result[cProp] = `var(--${realAbbr}-${pseudoName})`;
-      }
-      // >>> เพิ่มตรวจสอบ local var reference (&xxx) <<<
-      else if (val2.startsWith('--&')) {
-        const localVarRefName = val2.slice(3);
-        result[cProp] = `LOCALVAR(${localVarRefName})`;
+      } else if (val2.includes('--&')) {
+        // partial replace
+        const replaced = val2.replace(/--&([\w-]+)/g, (_, varName) => {
+          return `LOCALVAR(${varName})`;
+        });
+        result[cProp] = replaced;
       } else {
-        // ปกติ
         result[cProp] = finalVal;
       }
     }
   }
-
   styleDef.pseudos[pseudoName] = result;
 }
