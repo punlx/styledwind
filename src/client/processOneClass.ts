@@ -21,7 +21,7 @@ export function processOneClass(
   styleDef: IStyleDefinition,
   scopeName: string
 ): string {
-  const key = `${scopeName}:${className}:${JSON.stringify(styleDef)}`;
+  const key = `${scopeName}_${className}`;
   const cached = insertedRulesMap.get(key);
   if (cached) {
     return cached.displayName;
