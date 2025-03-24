@@ -181,9 +181,9 @@ export const abbrMap = {
   'ovscr-beh': 'overscroll-behavior',
   'ovscr-beh-x': 'overscroll-behavior-x',
   'ovscr-beh-y': 'overscroll-behavior-y',
+  op: 'opacty',
   rs: 'resize',
 
-  // Opacity, Pointer Events, Cursor
   pe: 'pointer-events',
 
   // Transform / Transition / Will-change
