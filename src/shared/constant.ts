@@ -78,7 +78,7 @@ export const abbrMap = {
    * Box Shadow / Sizing
    ********************************************/
   sd: 'box-shadow',
-  sz: 'box-sizing',
+  bs: 'box-sizing',
 
   /********************************************
    * Color, Cursor
@@ -89,9 +89,9 @@ export const abbrMap = {
   /********************************************
    * Container Query
    ********************************************/
-  'cn-type': 'container-type',
-  cn: 'container',
-  'cn-name': 'container-name',
+  'ctn-type': 'container-type',
+  ctn: 'container',
+  'ctn-name': 'container-name',
 
   /********************************************
    * Columns / Gap
