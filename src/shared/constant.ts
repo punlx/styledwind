@@ -42,8 +42,6 @@ export const abbrMap = {
   bdt: 'border-top',
   bdr: 'border-right',
   bdb: 'border-bottom',
-  bdw: 'border-width',
-  bdc: 'border-color',
   'bd-w': 'border-width',
   'bd-c': 'border-color',
   'bd-st': 'border-style',
