@@ -1,7 +1,4 @@
-// ======================================================
 // src/client/styledUtils/processClassBlocks.ts
-// (ปรับปรุงให้รองรับ @use ภายใน @query)
-// ======================================================
 import { IStyleDefinition } from '../../shared/parseStyles/parseStyles.types';
 import { createEmptyStyleDef } from '../../shared/parseStyles/parseStylesUtils';
 import { parseSingleAbbr } from '../../shared/parseStyles/parseSingleAbbr';
@@ -10,16 +7,20 @@ import { processOneClass } from '../processOneClass';
 import { IClassBlock } from '../parseDirectives';
 import { extractQueryBlocks } from './extractQueryBlocks';
 
+/**
+ * usedScopeClasses:
+ * - เก็บ "scopeName:className" เพื่อกันซ้ำข้ามไฟล์
+ */
 export const usedScopeClasses = new Set<string>();
 
 /**
  * processClassBlocks:
  * - วน loop classBlocks (แต่ละ .className { ... })
- * - parse บรรทัดปกติ + @use (ในระดับ class)
+ * - parse บรรทัดปกติ + @use (ระดับ class)
  * - แยก parse @query <selector> { ... } -> styleDef.queries
- * - ภายในแต่ละ query block ก็ parse line + @use (แล้ว merge)
- * - เรียก processOneClass() -> ได้ scopeName_className
- * - return mapping { className: "scope_className" }
+ * - ภายในแต่ละ query block ก็ parse line + @use (merge styleDef)
+ * - เรียก processOneClass -> ได้ displayName = "scopeName_className"
+ * - return mapping เช่น { box: "scope_box", ... }
  */
 export function processClassBlocks(
   scopeName: string,
@@ -32,7 +33,9 @@ export function processClassBlocks(
   for (const block of classBlocks) {
     const clsName = block.className;
 
-    // กันซ้ำภายในไฟล์
+    // -----------------------------
+    // 1) เช็คซ้ำภายในไฟล์ (local)
+    // -----------------------------
     if (localClasses.has(clsName)) {
       throw new Error(
         `[SWD-ERR] Duplicate class ".${clsName}" in scope "${scopeName}" (same file).`
@@ -40,31 +43,42 @@ export function processClassBlocks(
     }
     localClasses.add(clsName);
 
-    // กันซ้ำข้ามไฟล์
+    // -----------------------------
+    // 2) เช็คซ้ำข้ามไฟล์ (global)
+    // -----------------------------
     const scopeClassKey = `${scopeName}:${clsName}`;
-    if (usedScopeClasses.has(scopeClassKey)) {
-      console.warn(
-        `[SWD-ERR] Class ".${clsName}" in scope "${scopeName}" is already used in another file. Refresh to check if it is a HMR error.`
-      );
+
+    if (process.env.NODE_ENV === 'production') {
+      // Production -> เตือนปกติหากซ้ำ
+      if (usedScopeClasses.has(scopeClassKey)) {
+        console.warn(
+          `[SWD-ERR] Class ".${clsName}" in scope "${scopeName}" is already used in another file.`
+        );
+      }
     }
     usedScopeClasses.add(scopeClassKey);
+    // Development/HMR -> ไม่เตือนซ้ำเพื่อไม่ให้เกิด warning รก console
+    // ถ้าต้องการ log เบาๆ ก็ทำได้ เช่น
+    // console.info(`[SWD-DEV] Class ".${clsName}" in scope "${scopeName}" registered.`);
 
-    // สร้าง styleDef ว่าง
+    // -----------------------------
+    // 3) สร้าง styleDef ให้คลาสนี้
+    // -----------------------------
     const classStyleDef = createEmptyStyleDef();
 
-    // 1) แยกบล็อก @query <selector> { ... }
+    // ดึง @query block ออกก่อน
     const { queries, newBody } = extractQueryBlocks(block.body);
 
-    // สร้าง array IQueryBlock (selector + styleDef)
-    const realQueryBlocks = queries.map((q) => {
-      return {
-        selector: q.selector,
-        styleDef: createEmptyStyleDef(),
-      };
-    });
+    // สร้าง IQueryBlock array
+    const realQueryBlocks = queries.map((q) => ({
+      selector: q.selector,
+      styleDef: createEmptyStyleDef(),
+    }));
     classStyleDef.queries = realQueryBlocks;
 
-    // 2) parse บรรทัดที่เหลือ (หลังตัด @query ออก) แยก @use (ระดับ class หลัก)
+    // -----------------------------
+    // 4) parse line ใน body หลัก (ตัด @query ออกแล้ว)
+    // -----------------------------
     const lines = newBody
       .split('\n')
       .map((l) => l.trim())
@@ -85,7 +99,7 @@ export function processClassBlocks(
       }
     }
 
-    // parse normalLines ลงใน classStyleDef (ใช้ parseSingleAbbr ตามเดิม)
+    // parse normalLines ลง classStyleDef
     for (const ln of normalLines) {
       parseSingleAbbr(ln, classStyleDef);
     }
@@ -101,7 +115,9 @@ export function processClassBlocks(
       }
     }
 
-    // 3) parse detail ภายในแต่ละ query block
+    // -----------------------------
+    // 5) parse detail ภายใน query block
+    // -----------------------------
     for (let i = 0; i < realQueryBlocks.length; i++) {
       const qBlock = realQueryBlocks[i];
       const qRawBody = queries[i].rawBody;
@@ -111,7 +127,7 @@ export function processClassBlocks(
         .map((l) => l.trim())
         .filter(Boolean);
 
-      // *** เพิ่ม logic handle @use ภายใน query block
+      // handle @use ภายใน query block
       const usedConstNamesQ: string[] = [];
       const normalQueryLines: string[] = [];
 
@@ -129,7 +145,7 @@ export function processClassBlocks(
         parseSingleAbbr(qLn, qBlock.styleDef, false, true);
       }
 
-      // ถ้ามี @use => merge const ลงใน query styleDef
+      // merge const ถ้ามี
       for (const cName of usedConstNamesQ) {
         if (!constMap.has(cName)) {
           throw new Error(`[SWD-ERR] @use refers to unknown const "${cName}" inside @query.`);
@@ -139,11 +155,17 @@ export function processClassBlocks(
       }
     }
 
-    // 4) สร้าง CSS -> processOneClass
+    // -----------------------------
+    // 6) สร้าง CSS -> processOneClass
+    // -----------------------------
     const displayName = processOneClass(clsName, classStyleDef, scopeName);
 
+    // เก็บ map ไว้ return
     resultMap[clsName] = displayName;
   }
 
+  // -----------------------------
+  // 7) return { className: "scope_className", ... }
+  // -----------------------------
   return resultMap;
 }
