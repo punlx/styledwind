@@ -6,7 +6,7 @@ import { parseContainerStyle } from './parseContainerStyle';
 import { parsePseudoElementStyle } from './parsePseudoElementStyle';
 import { parseScreenStyle } from './parseScreenStyle';
 import { parseStateStyle } from './parseStateStyle';
-import { IStyleDefinition } from './parseStyles.types';
+import { IStyleDefinition } from '../parseStyles.types';
 
 export function parseSingleAbbr(
   abbrLine: string,

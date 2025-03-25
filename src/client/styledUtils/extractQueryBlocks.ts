@@ -1,7 +1,7 @@
 // ================================================
 // src/client/styledUtils/extractQueryBlocks.ts
 // ================================================
-import { IQueryBlock, IStyleDefinition } from '../../shared/parseStyles/parseStyles.types';
+import { IQueryBlock, IStyleDefinition } from '../../shared/parseStyles.types';
 import { createEmptyStyleDef } from '../../shared/parseStyles/parseStylesUtils';
 interface IRawQueryBlock {
   selector: string;

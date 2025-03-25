@@ -1,5 +1,5 @@
 // src/client/styledUtils/processClassBlocks.ts
-import { IStyleDefinition } from '../../shared/parseStyles/parseStyles.types';
+import { IStyleDefinition } from '../../shared/parseStyles.types';
 import { createEmptyStyleDef } from '../../shared/parseStyles/parseStylesUtils';
 import { parseSingleAbbr } from '../../shared/parseStyles/parseSingleAbbr';
 import { mergeStyleDef } from './mergeStyleDef';

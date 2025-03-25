@@ -1,7 +1,7 @@
 // ======================================================
 // src/client/transformLocalVariables.ts
 // ======================================================
-import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
+import { IStyleDefinition } from '../shared/parseStyles.types';
 
 /**
  * transformLocalVariables:

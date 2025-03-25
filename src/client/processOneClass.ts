@@ -4,7 +4,7 @@ import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
 import { transFormVariables } from './transFormVariables';
 import { transformLocalVariables } from './transformLocalVariables';
-import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
+import { IStyleDefinition } from '../shared/parseStyles.types';
 
 /**
  * processOneClass:

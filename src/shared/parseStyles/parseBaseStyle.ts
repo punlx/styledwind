@@ -3,7 +3,7 @@
 // ================================================
 import { fontDict } from '../../client/theme';
 import { abbrMap } from '../constant';
-import { IStyleDefinition } from './parseStyles.types';
+import { IStyleDefinition } from '../parseStyles.types';
 import { convertCSSVariable, separateStyleAndProperties } from './parseStylesUtils';
 
 export function parseBaseStyle(

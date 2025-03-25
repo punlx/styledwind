@@ -2,7 +2,7 @@
 // src/client/parseDirectives.ts (ฉบับแก้ไขรองรับ @query ซ้อนใน .class)
 // =====================================================
 
-import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
+import { IStyleDefinition } from '../shared/parseStyles.types';
 import { createEmptyStyleDef } from '../shared/parseStyles/parseStylesUtils';
 import { parseSingleAbbr } from '../shared/parseStyles/parseSingleAbbr';
 

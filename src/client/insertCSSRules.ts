@@ -2,7 +2,7 @@ import { constructedSheet, fallbackStyleElement } from './constant';
 import { insertedRulesMap, IInsertedRules } from './constant';
 import { buildCssText } from '../shared/buildCssText';
 import { isServer } from '../server/constant';
-import { IStyleDefinition } from '../shared/parseStyles/parseStyles.types';
+import { IStyleDefinition } from '../shared/parseStyles.types';
 
 // เก็บสไตล์ที่รอ insert
 const pendingStyleDefs = new Map<string, IStyleDefinition>();
