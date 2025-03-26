@@ -1,6 +1,4 @@
-// ================================================
 // src/shared/parseStyles/parseSingleAbbr.ts
-// ================================================
 import { parseBaseStyle } from './parseBaseStyle';
 import { parseContainerStyle } from './parseContainerStyle';
 import { parsePseudoElementStyle } from './parsePseudoElementStyle';

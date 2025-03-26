@@ -1,3 +1,4 @@
+// src/client/insertCSSRules.ts
 import { constructedSheet, fallbackStyleElement } from './constant';
 import { insertedRulesMap, IInsertedRules } from './constant';
 import { buildCssText } from '../shared/buildCssText';

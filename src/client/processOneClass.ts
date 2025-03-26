@@ -1,3 +1,4 @@
+// src/client/processOneClass.ts
 import { insertedRulesMap, IInsertedRules } from './constant';
 import { insertCSSRules, scheduleRemoveDisplayNames } from './insertCSSRules';
 import { isServer } from '../server/constant';

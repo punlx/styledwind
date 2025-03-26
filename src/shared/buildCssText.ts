@@ -1,6 +1,4 @@
-// ===========================================================
 // src/shared/buildCssText.ts
-// ===========================================================
 import { IStyleDefinition } from './parseStyles.types';
 export function buildCssText(displayName: string, styleDef: IStyleDefinition): string {
   let cssText = '';

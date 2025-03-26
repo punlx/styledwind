@@ -1,7 +1,4 @@
-// ================================================
 // src/shared/parseStyles/parseStyles.types.ts
-// ================================================
-
 export interface IQueryBlock {
   selector: string;
   styleDef: IStyleDefinition;

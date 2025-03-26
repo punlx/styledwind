@@ -1,4 +1,4 @@
-// /src/server/ServerStyleSheetInstance.ts
+// src/server/ServerStyleSheetInstance.ts
 
 import { _sheet } from './constant';
 import { ServerStyleSheet } from './serverStyleSheet';

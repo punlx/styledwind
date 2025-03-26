@@ -1,7 +1,4 @@
-/* ------------------------------------------
- * src/shared/constant.ts
- * - เก็บค่าหรือ dictionary ที่ใช้ร่วมกันทั้ง client/server
- * ------------------------------------------ */
+// src/shared/constant.ts
 export const abbrMap = {
   // Alignment, Box, Display
   ac: 'align-content',

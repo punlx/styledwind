@@ -1,7 +1,4 @@
 // src/client/styledUtils/extractScope.ts
-//======================
-// Extract / Ensure scope
-//======================
 
 import { IParsedDirective } from '../parseDirectives';
 

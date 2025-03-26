@@ -1,5 +1,4 @@
 // src/shared/parseStyles/parseStylesUtils.ts
-
 import { IStyleDefinition } from '../parseStyles.types';
 
 export function createEmptyStyleDef(): IStyleDefinition {

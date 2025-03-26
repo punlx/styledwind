@@ -1,5 +1,4 @@
 // src/client/styled.ts
-
 import { parseDirectivesAndClasses } from './parseDirectives';
 import { ensureScopeUnique } from './styledUtils/ensureScopeUnique';
 import { extractScope } from './styledUtils/extractScope';

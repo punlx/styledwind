@@ -1,6 +1,4 @@
-// ================================================
 // src/shared/parseStyles/parseStateStyle.ts
-// ================================================
 import { fontDict } from '../../client/theme';
 import { abbrMap } from '../constant';
 import { IStyleDefinition } from '../parseStyles.types';

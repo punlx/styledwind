@@ -1,3 +1,5 @@
+// src/client/styledUtils/scheduleFlush.ts
+
 import { buildVariableName } from './buildVariableName';
 import { parseDisplayName } from './parseDisplayName';
 import { parseVariableAbbr } from './parseVariableAbbr';
