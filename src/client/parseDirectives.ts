@@ -45,7 +45,7 @@ export interface IParseResult {
 /**
  * parseDirectivesAndClasses:
  * - ดึง @const <name> { ... } ออกมาก่อน (แล้ว parse บรรทัดข้างในเป็น partial styleDef)
- * - ดึง top-level directive (@scope, @bind ฯลฯ) แต่ข้าม @use, @query
+ * - ดึง top-level directive (@scope, @bind) ยกเว้น @use, @query
  * - ดึง block .className { ... } (ภายในอาจมี @use หรือ @query ... แบบ nested brace)
  */
 export function parseDirectivesAndClasses(text: string): IParseResult {
@@ -56,15 +56,18 @@ export function parseDirectivesAndClasses(text: string): IParseResult {
   let newText = text;
 
   // -------------------------------------------------
-  // 1) หา & parse บล็อก @const
+  // 1) หา & parse บล็อก @const ด้วย matchAll
   // -------------------------------------------------
   const constRegex = /^[ \t]*@const\s+([\w-]+)\s*\{([\s\S]*?)\}/gm;
-  let constMatch: RegExpExecArray | null;
+  // ดึง match ทั้งหมดออกมาก่อน
+  const allConstMatches = [...newText.matchAll(constRegex)];
 
-  while ((constMatch = constRegex.exec(newText)) !== null) {
-    const constName = constMatch[1];
-    const rawBlock = constMatch[2];
+  for (const match of allConstMatches) {
+    const fullMatch = match[0]; // '...@const <name> {...}'
+    const constName = match[1];
+    const rawBlock = match[2];
 
+    // ตรวจซ้ำชื่อ const
     if (constBlocks.find((c) => c.name === constName)) {
       throw new Error(`[SWD-ERR] Duplicate @const name "${constName}".`);
     }
@@ -87,12 +90,14 @@ export function parseDirectivesAndClasses(text: string): IParseResult {
       parseSingleAbbr(line, partialStyleDef, true);
     }
 
+    // เก็บลง constBlocks
     constBlocks.push({
       name: constName,
       styleDef: partialStyleDef,
     });
 
-    newText = newText.replace(constMatch[0], '').trim();
+    // ค่อยลบ block นี้ออกจาก newText
+    newText = newText.replace(fullMatch, '').trim();
   }
 
   // -------------------------------------------------
@@ -106,16 +111,17 @@ export function parseDirectivesAndClasses(text: string): IParseResult {
     const dirName = match[1];
     const dirValue = match[2].trim();
 
-    // กรณี @use, @query -> ข้าม (ไม่ลบออกจาก newText)
+    // หากเป็น @use, @query ให้ข้าม
     if (dirName === 'use' || dirName === 'query') {
       continue;
     }
 
-    // อื่น ๆ เช่น @scope, @bind
     directives.push({ name: dirName, value: dirValue });
 
-    // ตัด directive ที่พบออกไปจาก newText
+    // ตัด directive ที่ match ออกไป
     newText = newText.replace(match[0], '').trim();
+
+    // รีเซ็ต lastIndex = 0 ให้ regex เริ่มค้นใหม่จากต้น
     directiveRegex.lastIndex = 0;
   }
 
@@ -147,7 +153,7 @@ function parseClassBlocksWithBraceCounting(text: string): IClassBlock[] {
 
   while ((match = pattern.exec(text)) !== null) {
     const className = match[1];
-    // ตำแหน่งหลัง `{`
+    // ตำแหน่งหลัง {
     const startIndex = pattern.lastIndex;
     let braceCount = 1;
     let i = startIndex;
