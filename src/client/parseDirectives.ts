@@ -48,7 +48,7 @@ export interface IParseResult {
  * - ดึง top-level directive (@scope, @bind) ยกเว้น @use, @query
  * - ดึง block .className { ... } (ภายในอาจมี @use หรือ @query ... แบบ nested brace)
  */
-export function parseDirectivesAndClasses(text: string): IParseResult {
+export function parseDirectives(text: string): IParseResult {
   const directives: IParsedDirective[] = [];
   const classBlocks: IClassBlock[] = [];
   const constBlocks: IConstBlock[] = [];

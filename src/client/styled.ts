@@ -1,5 +1,5 @@
 // src/client/styled.ts
-import { parseDirectivesAndClasses } from './parseDirectives';
+import { parseDirectives } from './parseDirectives';
 import { ensureScopeUnique } from './styledUtils/ensureScopeUnique';
 import { extractScope } from './styledUtils/extractScope';
 import { handleBindDirectives } from './styledUtils/handleBindDirectives';
@@ -29,7 +29,7 @@ export function styled<T extends Record<string, string[]>>(
   const text = template[0];
 
   // 2) parse directives + class blocks + const blocks
-  const { directives, classBlocks, constBlocks } = parseDirectivesAndClasses(text);
+  const { directives, classBlocks, constBlocks } = parseDirectives(text);
   // 3) หา scope (@scope)
   const scopeName = extractScope(directives);
 
