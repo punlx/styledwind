@@ -19,8 +19,7 @@ export const usedScopeClasses = new Set<string>();
  * - parse บรรทัดปกติ + @use (ระดับ class)
  * - แยก parse @query <selector> { ... } -> styleDef.queries
  * - ภายในแต่ละ query block ก็ parse line + @use (merge styleDef)
- * - เรียก processOneClass -> ได้ displayName = "scopeName_className"
- * - return mapping เช่น { box: "scope_box", ... }
+ * - เรียก processOneClass -> ได้ displayName = "scopeName_className" หรือ ".className" (ถ้า scope=none)
  */
 export function processClassBlocks(
   scopeName: string,
@@ -46,20 +45,20 @@ export function processClassBlocks(
     // -----------------------------
     // 2) เช็คซ้ำข้ามไฟล์ (global)
     // -----------------------------
-    const scopeClassKey = `${scopeName}:${clsName}`;
+    // ถ้า scopeName != 'none' จึงเช็ค (user บางคนอาจอยากใช้ global คลาส .test)
+    if (scopeName !== 'none') {
+      const scopeClassKey = `${scopeName}:${clsName}`;
 
-    if (process.env.NODE_ENV === 'production') {
-      // Production -> เตือนปกติหากซ้ำ
-      if (usedScopeClasses.has(scopeClassKey)) {
-        console.warn(
-          `[SWD-ERR] Class ".${clsName}" in scope "${scopeName}" is already used in another file.`
-        );
+      if (process.env.NODE_ENV === 'production') {
+        if (usedScopeClasses.has(scopeClassKey)) {
+          console.warn(
+            `[SWD-ERR] Class ".${clsName}" in scope "${scopeName}" is already used in another file.`
+          );
+        }
       }
+      usedScopeClasses.add(scopeClassKey);
     }
-    usedScopeClasses.add(scopeClassKey);
-    // Development/HMR -> ไม่เตือนซ้ำเพื่อไม่ให้เกิด warning รก console
-    // ถ้าต้องการ log เบาๆ ก็ทำได้ เช่น
-    // console.info(`[SWD-DEV] Class ".${clsName}" in scope "${scopeName}" registered.`);
+    // ถ้า scopeName === 'none' -> ข้ามการเช็คซ้ำ
 
     // -----------------------------
     // 3) สร้าง styleDef ให้คลาสนี้
@@ -127,7 +126,6 @@ export function processClassBlocks(
         .map((l) => l.trim())
         .filter(Boolean);
 
-      // handle @use ภายใน query block
       const usedConstNamesQ: string[] = [];
       const normalQueryLines: string[] = [];
 

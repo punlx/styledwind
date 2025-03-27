@@ -1,37 +1,35 @@
-// src/client/transformVariables.ts
+// src/client/transFormVariables.ts
+
 import { IStyleDefinition } from '../shared/parseStyles.types';
 
 /**
  * transformVariables:
- * เปลี่ยนตัวแปร $var (เช่น $bg, $c) ให้กลายเป็น var(--bg-scopeName_className)
- * หรือถ้าอยู่ใน state/pseudo (เช่น hover, before, after) ก็เติม -hover / -before / -after ต่อท้าย
- *
- * สมมติ:
- *  - scopeName = 'app'
- *  - className = 'box'
- *  => --bg-app_box
- *  => --c-app_box-hover
- *  => --bg-app_box-after
+ * - ถ้า scopeName==='none': ใช้รูป "--<varName>-<className>"
+ * - ถ้า scopeName!='none': ปกติ => "--<varName>-<scopeName>_<className>"
  */
 export function transFormVariables(
   styleDef: IStyleDefinition,
   scopeName: string,
   className: string
 ): void {
+  // helper สร้าง prefix
+  const scopePart = scopeName === 'none' ? className : `${scopeName}_${className}`;
+
   // -----------------------------
   // 1) Base variables (varBase)
   // -----------------------------
   if (styleDef.varBase) {
     for (const varName in styleDef.varBase) {
       const rawValue = styleDef.varBase[varName];
-      // finalVarName => --varName-scope_class
-      const finalVarName = `--${varName}-${scopeName}_${className}`;
 
-      // เขียนลง rootVars
+      // finalVarName => "--varName-scopePart"
+      const finalVarName = `--${varName}-${scopePart}`;
+
+      // ใส่ลง rootVars
       styleDef.rootVars = styleDef.rootVars || {};
       styleDef.rootVars[finalVarName] = rawValue;
 
-      // replace ใน base props
+      // replace var(--varName) => var(--varName-scopePart) ใน base
       for (const cssProp in styleDef.base) {
         styleDef.base[cssProp] = styleDef.base[cssProp].replace(
           `var(--${varName})`,
@@ -49,13 +47,14 @@ export function transFormVariables(
       const varsOfThatState: Record<string, string> = styleDef.varStates[stName] || {};
       for (const varName in varsOfThatState) {
         const rawValue = varsOfThatState[varName];
-        // ตัวแปรใส่ -scope_class-state
-        const finalVarName = `--${varName}-${scopeName}_${className}-${stName}`;
+
+        // "--varName-scopePart-stateName"
+        const finalVarName = `--${varName}-${scopePart}-${stName}`;
 
         styleDef.rootVars = styleDef.rootVars || {};
         styleDef.rootVars[finalVarName] = rawValue;
 
-        // replace var(--varName-state) => var(--varName-scope_class-state)
+        // replace var(--varName-state) => var(--varName-scopePart-state)
         const stateProps = styleDef.states[stName];
         if (stateProps) {
           for (const cssProp in stateProps) {
@@ -75,18 +74,15 @@ export function transFormVariables(
   if (styleDef.varPseudos) {
     for (const pseudoName in styleDef.varPseudos) {
       if (pseudoName === 'before' || pseudoName === 'after') {
-        // pseudoVars = { bg: 'yellow', c: 'blue' } สมมติ
         const pseudoVars: Record<string, string> = styleDef.varPseudos[pseudoName] || {};
         for (const varName in pseudoVars) {
           const rawValue = pseudoVars[varName];
-          // finalVarName -> --bg-app_box-after
-          const finalVarName = `--${varName}-${scopeName}_${className}-${pseudoName}`;
+          // "--varName-scopePart-pseudoName"
+          const finalVarName = `--${varName}-${scopePart}-${pseudoName}`;
 
-          // เก็บลง rootVars
           styleDef.rootVars = styleDef.rootVars || {};
           styleDef.rootVars[finalVarName] = rawValue;
 
-          // replace ใน styleDef.pseudos[pseudoName]
           const pseudoProps = styleDef.pseudos[pseudoName];
           if (pseudoProps) {
             for (const cssProp in pseudoProps) {

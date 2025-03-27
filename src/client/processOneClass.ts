@@ -1,4 +1,5 @@
 // src/client/processOneClass.ts
+
 import { insertedRulesMap, IInsertedRules } from './constant';
 import { insertCSSRules, scheduleRemoveDisplayNames } from './insertCSSRules';
 import { isServer } from '../server/constant';
@@ -9,18 +10,22 @@ import { IStyleDefinition } from '../shared/parseStyles.types';
 
 /**
  * processOneClass:
- * - สร้าง displayName = "scopeName_className"
- * - transformVariables + insert CSS
- * - Dev/HMR จะลบ rule เก่า (ถ้ามี) แล้วสร้างใหม่
+ * - สร้าง displayName
+ *   ถ้า scopeName==='none' => displayName = className เฉยๆ
+ *   ถ้า scopeName อื่น => scopeName_className
+ * - transformVariables + insertCSS
+ * - Dev/HMR ลบของเก่า (ถ้ามี) -> insert ใหม่
  */
 export function processOneClass(
   className: string,
   styleDef: IStyleDefinition,
   scopeName: string
 ): string {
-  const key = `${scopeName}_${className}`;
+  // สร้าง key เพื่อดู cache
+  // ถ้า scope=none ก็ใช้ key='none_className' ป้องกันไม่ให้ชนกันเอง
+  const key = scopeName === 'none' ? `none_${className}` : `${scopeName}_${className}`;
 
-  // Production: ใช้ cache ปกติ
+  // Production -> ใช้ cache
   if (process.env.NODE_ENV === 'production') {
     const cached = insertedRulesMap.get(key);
     if (cached) {
@@ -30,20 +35,24 @@ export function processOneClass(
     // Dev/HMR: ลบ rule เก่าก่อน
     const old = insertedRulesMap.get(key);
     if (old) {
-      // <<< เปลี่ยนจาก removeStyleRulesByDisplayName เป็น batch removal >>>
       scheduleRemoveDisplayNames([old.displayName]);
       insertedRulesMap.delete(key);
     }
   }
 
-  // สร้าง displayName
-  const displayName = `${scopeName}_${className}`;
+  // กำหนด displayName
+  let displayName: string;
+  if (scopeName === 'none') {
+    displayName = className; // ไม่เติม prefix
+  } else {
+    displayName = `${scopeName}_${className}`;
+  }
 
-  // transform variables
+  // transform variable
   transFormVariables(styleDef, scopeName, className);
   transformLocalVariables(styleDef, scopeName, className);
 
-  // ถ้ามี styleDef.queries => transform ใน query block ด้วย
+  // ถ้ามี styleDef.queries => transform ด้วย
   if (styleDef.queries && styleDef.queries.length > 0) {
     for (const qb of styleDef.queries) {
       if (!qb.styleDef.localVars) {
