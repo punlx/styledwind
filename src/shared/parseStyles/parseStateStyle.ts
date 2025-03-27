@@ -1,12 +1,12 @@
 // src/shared/parseStyles/parseStateStyle.ts
 
-import { fontDict } from '../../client/theme';
+import { typographyDict } from '../../client/theme';
 import { abbrMap } from '../constant';
 import { IStyleDefinition } from '../parseStyles.types';
 import {
   convertCSSVariable,
   separateStyleAndProperties,
-  detectImportantSuffix, // ฟังก์ชันจับ '!' ด้านท้าย
+  detectImportantSuffix,
 } from './parseStylesUtils';
 
 export function parseStateStyle(
@@ -15,31 +15,22 @@ export function parseStateStyle(
   isConstContext: boolean = false
 ) {
   const openParenIdx = abbrLine.indexOf('(');
-  const funcName = abbrLine.slice(0, openParenIdx).trim(); // "hover"
-  const inside = abbrLine.slice(openParenIdx + 1, -1).trim(); // "bg[red]! d[flex]"
+  const funcName = abbrLine.slice(0, openParenIdx).trim(); // "hover", "focus", etc.
+  const inside = abbrLine.slice(openParenIdx + 1, -1).trim();
 
-  // แยก prop ในวงเล็บ => ["bg[red]!", "d[flex]"]
   const propsInState = inside.split(/ (?=[^\[\]]*(?:\[|$))/);
   const result: Record<string, string> = {};
 
   for (const p of propsInState) {
-    // 1) ตรวจจับ !important ใน token หลัก
     const { line: tokenNoBang, isImportant } = detectImportantSuffix(p);
-    // 2) parse เป็น abbr / val e.g. abbr="bg", val="red"
     const [abbr, val] = separateStyleAndProperties(tokenNoBang);
     if (!abbr) continue;
 
-    // expansions เดิม (ส่วนใหญ่ 1 ตัว แต่ไม่แตะ)
     const expansions = [`${abbr}[${val}]`];
-
     for (const ex of expansions) {
-      // **ยกเลิก** detectImportantSuffix(ex) ซ้ำ
-      // ใช้ isImportant จาก token หลักแทน
-
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
 
-      // ถ้าเป็น localVar + ! => throw
       if (abbr2.startsWith('--&') && isImportant) {
         throw new Error(
           `[SWD-ERR] !important is not allowed with local var (${abbr2}) in state ${funcName}.`
@@ -49,12 +40,13 @@ export function parseStateStyle(
       const isVar = abbr2.startsWith('$');
       const realAbbr = isVar ? abbr2.slice(1) : abbr2;
 
-      if (realAbbr === 'f') {
-        // font shorthand
-        const dictEntry = fontDict.dict[val2] as Record<string, string> | undefined;
+      // เดิม: if (realAbbr==='f') => fontDict
+      // ใหม่: if (realAbbr==='ty') => typographyDict
+      if (realAbbr === 'ty') {
+        const dictEntry = typographyDict.dict[val2] as Record<string, string> | undefined;
         if (!dictEntry) {
           throw new Error(
-            `[SWD-ERR] Font key "${val2}" not found in theme.font(...) dict for state ${funcName}.`
+            `[SWD-ERR] Typography key "${val2}" not found in theme.typography(...) for state ${funcName}.`
           );
         }
         for (const [cssProp2, cssVal2] of Object.entries(dictEntry)) {
@@ -69,16 +61,13 @@ export function parseStateStyle(
       }
 
       let finalVal = convertCSSVariable(val2);
-
       if (isVar) {
-        // varStates
         styleDef.varStates = styleDef.varStates || {};
         styleDef.varStates[funcName] = styleDef.varStates[funcName] || {};
         styleDef.varStates[funcName][realAbbr] = finalVal;
 
         result[cProp] = `var(--${realAbbr}-${funcName})` + (isImportant ? ' !important' : '');
       } else if (val2.includes('--&')) {
-        // partial replace
         const replaced = val2.replace(/--&([\w-]+)/g, (_, varName) => {
           return `LOCALVAR(${varName})`;
         });

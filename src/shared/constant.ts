@@ -1,4 +1,5 @@
 // src/shared/constant.ts
+
 export const abbrMap = {
   // Alignment, Box, Display
   ac: 'align-content',
@@ -101,7 +102,7 @@ export const abbrMap = {
    ********************************************/
   fx: 'flex',
   'fx-basis': 'flex-basis',
-  basis: 'flex-basis', // (สำรอง ถ้าอยากใช้ basis[...] ตรง ๆ)
+  basis: 'flex-basis',
   wrap: 'flex-wrap',
   drt: 'flex-direction',
   flow: 'flex-flow',
@@ -140,6 +141,9 @@ export const abbrMap = {
   /********************************************
    * Font / Text
    ********************************************/
+  // เปลี่ยนมาใช้ f => 'font' (แทนที่จะ parse เป็น theme.font)
+  f: 'font',
+
   fm: 'font-family',
   fs: 'font-size',
   fw: 'font-weight',
@@ -231,6 +235,7 @@ export const abbrMap = {
   'ovscr-beh-y': 'overscroll-behavior-y',
   rs: 'resize',
   op: 'opacity',
+
   /********************************************
    * Opacity, Pointer Events, Cursor
    ********************************************/

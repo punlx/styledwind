@@ -1,6 +1,6 @@
 // src/shared/parseStyles/parsePseudoElementStyle.ts
 
-import { fontDict } from '../../client/theme';
+import { typographyDict } from '../../client/theme';
 import { abbrMap } from '../constant';
 import { IStyleDefinition } from '../parseStyles.types';
 import {
@@ -24,9 +24,7 @@ export function parsePseudoElementStyle(
   styleDef.varPseudos[pseudoName] = styleDef.varPseudos[pseudoName] || {};
 
   for (const p of propsInPseudo) {
-    // detect !important
     const { line: tokenNoBang, isImportant } = detectImportantSuffix(p);
-
     const [abbr, val] = separateStyleAndProperties(tokenNoBang);
     if (!abbr) continue;
 
@@ -43,18 +41,19 @@ export function parsePseudoElementStyle(
 
     const expansions = [`${abbr}[${val}]`];
     for (const ex of expansions) {
-      // ไม่ต้อง detectImportantSuffix(ex) ซ้ำ
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
 
       const isVariable = abbr2.startsWith('$');
       const realAbbr = isVariable ? abbr2.slice(1) : abbr2;
 
-      if (realAbbr === 'f') {
-        const dictEntry = fontDict.dict[val2] as Record<string, string> | undefined;
+      // เดิม: if (realAbbr === 'f') => fontDict
+      // ใหม่: if (realAbbr === 'ty') => typographyDict
+      if (realAbbr === 'ty') {
+        const dictEntry = typographyDict.dict[val2] as Record<string, string> | undefined;
         if (!dictEntry) {
           throw new Error(
-            `[SWD-ERR] Font key "${val2}" not found in theme.font(...) dict for pseudo ${pseudoName}.`
+            `[SWD-ERR] Typography key "${val2}" not found in theme.typography(...) for pseudo ${pseudoName}.`
           );
         }
         for (const [cssProp2, cssVal2] of Object.entries(dictEntry)) {
@@ -69,7 +68,6 @@ export function parsePseudoElementStyle(
       }
 
       const finalVal = convertCSSVariable(val2);
-
       if (isVariable) {
         styleDef.varPseudos[pseudoName]![realAbbr] = finalVal;
         result[cProp] = `var(--${realAbbr}-${pseudoName})` + (isImportant ? ' !important' : '');

@@ -1,12 +1,12 @@
 // src/shared/parseStyles/parseBaseStyle.ts
 
-import { fontDict } from '../../client/theme';
+import { typographyDict } from '../../client/theme';
 import { abbrMap } from '../constant';
 import { IStyleDefinition } from '../parseStyles.types';
 import {
   convertCSSVariable,
   separateStyleAndProperties,
-  detectImportantSuffix, // [ADDED]
+  detectImportantSuffix,
 } from './parseStylesUtils';
 
 export function parseBaseStyle(
@@ -15,29 +15,31 @@ export function parseBaseStyle(
   isConstContext: boolean = false,
   isQueryBlock: boolean = false
 ) {
-  // [ADDED] ตรวจสอบ !important ก่อน
+  // ตรวจสอบ !important
   const { line: abbrLineNoBang, isImportant } = detectImportantSuffix(abbrLine);
-
-  // --- (คงของเดิม) ---
   const [styleAbbr, propValue] = separateStyleAndProperties(abbrLineNoBang);
   if (!styleAbbr) {
     return;
   }
 
-  // 1) check font shorthand: f[...]
-  if (styleAbbr === 'f') {
-    const dictEntry = fontDict.dict[propValue] as Record<string, string> | undefined;
+  // -----
+  // เดิม: if (styleAbbr === 'f') => ดึงจาก fontDict
+  // ใหม่: if (styleAbbr === 'ty') => ดึงจาก typographyDict
+  // -----
+  if (styleAbbr === 'ty') {
+    const dictEntry = typographyDict.dict[propValue];
     if (!dictEntry) {
-      throw new Error(`[SWD-ERR] Font key "${propValue}" not found in theme.font(...) dict.`);
+      throw new Error(
+        `[SWD-ERR] Typography key "${propValue}" not found in theme.typography(...) dict.`
+      );
     }
     for (const [cssProp, cssVal] of Object.entries(dictEntry)) {
-      // [ADDED] เติม !important ถ้าจำเป็น
       styleDef.base[cssProp] = convertCSSVariable(cssVal) + (isImportant ? ' !important' : '');
     }
     return;
   }
 
-  // 2) local var declaration: --&xxx[...]
+  // ตรวจ local var
   if (styleAbbr.startsWith('--&')) {
     if (isConstContext) {
       throw new Error(`[SWD-ERR] Local var "${styleAbbr}" not allowed inside @const block.`);
@@ -45,12 +47,11 @@ export function parseBaseStyle(
     if (isQueryBlock) {
       throw new Error(`[SWD-ERR] Local var "${styleAbbr}" not allowed inside @query block.`);
     }
-    // [ADDED] ห้ามใช้ !important กับ localVar
     if (isImportant) {
       throw new Error(`[SWD-ERR] !important is not allowed with local var "${styleAbbr}".`);
     }
 
-    const localVarName = styleAbbr.slice(3); // ตัด "--&"
+    const localVarName = styleAbbr.slice(3);
     if (!styleDef.localVars) {
       styleDef.localVars = {};
     }
@@ -61,21 +62,18 @@ export function parseBaseStyle(
     return;
   }
 
-  // 3) check if it's $variable (varBase)
+  // check $variable
   const isVariable = styleAbbr.startsWith('$');
   const realAbbr = isVariable ? styleAbbr.slice(1) : styleAbbr;
   const expansions = [`${realAbbr}[${propValue}]`];
-  if (isVariable) {
-    if (isQueryBlock) {
-      throw new Error(`[SWD-ERR] $variable ("${styleAbbr}") not allowed inside @query block.`);
-    }
+  if (isVariable && isQueryBlock) {
+    throw new Error(`[SWD-ERR] $variable ("${styleAbbr}") not allowed inside @query block.`);
   }
 
   for (const ex of expansions) {
     const [abbr2, val2] = separateStyleAndProperties(ex);
-    if (!abbr2) {
-      continue;
-    }
+    if (!abbr2) continue;
+
     const cssProp = abbrMap[abbr2 as keyof typeof abbrMap];
     if (!cssProp) {
       throw new Error(`"${abbr2}" not defined in abbrMap. (abbrLine=${abbrLine})`);
@@ -83,7 +81,6 @@ export function parseBaseStyle(
     const finalVal = convertCSSVariable(val2);
 
     if (isVariable) {
-      // case $bg[...] => varBase
       if (val2.startsWith('--&')) {
         throw new Error(
           `[SWD-ERR] Local var (--&xxx) is not allowed inside $variable usage. Got "${val2}"`
@@ -94,15 +91,13 @@ export function parseBaseStyle(
       }
       styleDef.varBase[realAbbr] = finalVal;
 
-      // [ADDED] ใส่ !important ถ้า isImportant
       styleDef.base[cssProp] = `var(--${realAbbr})${isImportant ? ' !important' : ''}`;
     } else {
-      // --- แก้เป็น partial replace
+      // replace '--&' if exist
       if (val2.includes('--&')) {
         const replaced = val2.replace(/--&([\w-]+)/g, (_, varName) => {
           return `LOCALVAR(${varName})`;
         });
-        // [ADDED] + !important
         styleDef.base[cssProp] = replaced + (isImportant ? ' !important' : '');
       } else {
         styleDef.base[cssProp] = finalVal + (isImportant ? ' !important' : '');

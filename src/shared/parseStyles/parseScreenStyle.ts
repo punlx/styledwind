@@ -1,6 +1,6 @@
 // src/shared/parseStyles/parseScreenStyle.ts
 
-import { breakpoints, fontDict } from '../../client/theme';
+import { breakpoints, typographyDict } from '../../client/theme';
 import { abbrMap } from '../constant';
 import { IStyleDefinition } from '../parseStyles.types';
 import {
@@ -47,21 +47,17 @@ export function parseScreenStyle(
 
   const mediaQuery = `(${screenProp}:${screenValue})`;
 
-  // แยก prop e.g. "bg[red]! d[flex]"
   const styleList = propsPart.split(/ (?=[^\[\]]*(?:\[|$))/);
   const screenProps: Record<string, string> = {};
 
   for (const p of styleList) {
-    // detect !important
     const { line: tokenNoBang, isImportant } = detectImportantSuffix(p);
-
     const [abbr, val] = separateStyleAndProperties(tokenNoBang);
     if (!abbr) continue;
 
     const expansions = [`${abbr}[${val}]`];
 
     for (const ex of expansions) {
-      // ไม่ detectImportantSuffix(ex) ซ้ำ
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
 
@@ -69,10 +65,12 @@ export function parseScreenStyle(
         throw new Error(`[SWD-ERR] !important is not allowed with local var (${abbr2}) in screen.`);
       }
 
-      if (abbr2 === 'f') {
-        const dictEntry = fontDict.dict[val2] as Record<string, string> | undefined;
+      // เดิม: if (abbr2 === 'f') => fontDict
+      // ใหม่: if (abbr2 === 'ty') => typographyDict
+      if (abbr2 === 'ty') {
+        const dictEntry = typographyDict.dict[val2] as Record<string, string> | undefined;
         if (!dictEntry) {
-          throw new Error(`"${val2}" not found in theme.font(...) dict (screen).`);
+          throw new Error(`"${val2}" not found in theme.typography(...) (screen).`);
         }
         for (const [cssProp2, cssVal2] of Object.entries(dictEntry)) {
           screenProps[cssProp2] = convertCSSVariable(cssVal2) + (isImportant ? ' !important' : '');
@@ -80,7 +78,7 @@ export function parseScreenStyle(
       } else {
         const cProp = abbrMap[abbr2 as keyof typeof abbrMap];
         if (!cProp) {
-          throw new Error(`"${abbr2}" not found in abbrMap.`);
+          throw new Error(`"${abbr2}" not found in abbrMap (screen).`);
         }
         if (val2.includes('--&')) {
           const replaced = val2.replace(/--&([\w-]+)/g, (_, varName) => {
