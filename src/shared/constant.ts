@@ -1,6 +1,8 @@
 // src/shared/constant.ts
 
 export const abbrMap = {
+  // All
+  a: 'all',
   // Alignment, Box, Display
   ac: 'align-content',
   ai: 'align-items',
