@@ -33,6 +33,7 @@ const knownStates = [
 
   // Form state
   'disabled',
+  'enabled',
   'read-only',
   'read-write',
   'required',
