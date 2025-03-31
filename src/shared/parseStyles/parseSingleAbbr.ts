@@ -18,6 +18,8 @@ const supportedPseudos = [
   'first-line',
   'marker',
   'backdrop',
+  'spelling-error',
+  'grammar-error',
 ];
 
 const knownStates = [
@@ -49,7 +51,6 @@ const knownStates = [
   'visited',
 
   // Other (less common)
-  'autofill',
   'user-invalid',
 ];
 
