@@ -69,28 +69,26 @@ export function transFormVariables(
   }
 
   // ------------------------------------------------------
-  // 3) Pseudo variables (varPseudos.before / varPseudos.after)
+  // 3) Pseudo variables
   // ------------------------------------------------------
   if (styleDef.varPseudos) {
     for (const pseudoName in styleDef.varPseudos) {
-      if (pseudoName === 'before' || pseudoName === 'after') {
-        const pseudoVars: Record<string, string> = styleDef.varPseudos[pseudoName] || {};
-        for (const varName in pseudoVars) {
-          const rawValue = pseudoVars[varName];
-          // "--varName-scopePart-pseudoName"
-          const finalVarName = `--${varName}-${scopePart}-${pseudoName}`;
+      const pseudoVars: Record<string, string> = styleDef.varPseudos[pseudoName] || {};
+      for (const varName in pseudoVars) {
+        const rawValue = pseudoVars[varName];
+        // "--varName-scopePart-pseudoName"
+        const finalVarName = `--${varName}-${scopePart}-${pseudoName}`;
 
-          styleDef.rootVars = styleDef.rootVars || {};
-          styleDef.rootVars[finalVarName] = rawValue;
+        styleDef.rootVars = styleDef.rootVars || {};
+        styleDef.rootVars[finalVarName] = rawValue;
 
-          const pseudoProps = styleDef.pseudos[pseudoName];
-          if (pseudoProps) {
-            for (const cssProp in pseudoProps) {
-              pseudoProps[cssProp] = pseudoProps[cssProp].replace(
-                `var(--${varName}-${pseudoName})`,
-                `var(${finalVarName})`
-              );
-            }
+        const pseudoProps = styleDef.pseudos[pseudoName];
+        if (pseudoProps) {
+          for (const cssProp in pseudoProps) {
+            pseudoProps[cssProp] = pseudoProps[cssProp].replace(
+              `var(--${varName}-${pseudoName})`,
+              `var(${finalVarName})`
+            );
           }
         }
       }

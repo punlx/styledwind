@@ -15,7 +15,7 @@ export function parsePseudoElementStyle(
   isConstContext: boolean = false
 ) {
   const openParenIdx = abbrLine.indexOf('(');
-  const pseudoName = abbrLine.slice(0, openParenIdx).trim() as 'before' | 'after';
+  const pseudoName = abbrLine.slice(0, openParenIdx).trim();
   const inside = abbrLine.slice(openParenIdx + 1, -1).trim();
   const propsInPseudo = inside.split(/ (?=[^\[\]]*(?:\[|$))/);
 
