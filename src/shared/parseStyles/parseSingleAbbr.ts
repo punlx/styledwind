@@ -1,4 +1,5 @@
 // src/shared/parseStyles/parseSingleAbbr.ts
+
 import { parseBaseStyle } from './parseBaseStyle';
 import { parseContainerStyle } from './parseContainerStyle';
 import { parsePseudoElementStyle } from './parsePseudoElementStyle';
@@ -6,6 +7,60 @@ import { parseScreenStyle } from './parseScreenStyle';
 import { parseStateStyle } from './parseStateStyle';
 import { IStyleDefinition } from '../parseStyles.types';
 
+// prefix ต่าง ๆ ที่รองรับได้
+const supportedPseudos = [
+  'before',
+  'after',
+  'placeholder',
+  'selection',
+  'file-selector-button',
+  'first-letter',
+  'first-line',
+  'marker',
+  'backdrop',
+];
+
+const knownStates = [
+  // Interaction
+  'hover',
+  'focus',
+  'active',
+  'focus-within',
+  'focus-visible',
+  'target',
+
+  // Form state
+  'disabled',
+  'read-only',
+  'read-write',
+  'required',
+  'optional',
+  'checked',
+  'indeterminate',
+  'valid',
+  'invalid',
+  'in-range',
+  'out-of-range',
+  'placeholder-shown',
+  'default',
+
+  // Link
+  'link',
+  'visited',
+
+  // Other (less common)
+  'autofill',
+  'user-invalid',
+];
+
+/**
+ * parseSingleAbbr
+ *
+ * @param abbrLine string ย่อสไตล์ หรือบรรทัดที่ต้องการ parse
+ * @param styleDef ตัวเก็บผลลัพธ์สไตล์ (IStyleDefinition)
+ * @param isConstContext เป็น context ที่เป็น const หรือไม่
+ * @param isQueryBlock อยู่ใน @query บล็อคหรือไม่
+ */
 export function parseSingleAbbr(
   abbrLine: string,
   styleDef: IStyleDefinition,
@@ -19,6 +74,7 @@ export function parseSingleAbbr(
     throw new Error(`[SWD-ERR] Nested @query is not allowed.`);
   }
 
+  // ถ้าอยู่ใน @query block ห้ามมี local-var หรือ runtime-var
   if (isQueryBlock) {
     if (/^--&[\w-]+\[/.test(trimmed)) {
       throw new Error(`[SWD-ERR] Local var not allowed inside @query block. Found: "${trimmed}"`);
@@ -30,35 +86,39 @@ export function parseSingleAbbr(
     }
   }
 
-  // 3) check screen(...) / container(...) / before(...) / after(...) / states(...)
-  if (trimmed.startsWith('screen(')) {
-    parseScreenStyle(trimmed, styleDef, isConstContext);
+  // 2) หา '(' ครั้งแรก (ถ้าไม่มี แสดงว่าเป็น base style)
+  const openParenIndex = trimmed.indexOf('(');
+
+  if (openParenIndex === -1) {
+    // ไม่มี '(' => เป็น base style
+    parseBaseStyle(trimmed, styleDef, isConstContext, isQueryBlock);
     return;
   }
-  if (trimmed.startsWith('container(')) {
-    parseContainerStyle(trimmed, styleDef, isConstContext);
+
+  // 3) ดึง prefix ก่อน '('
+  const prefix = trimmed.slice(0, openParenIndex);
+
+  if (knownStates.includes(prefix)) {
+    parseStateStyle(trimmed, styleDef, isConstContext);
     return;
   }
-  if (trimmed.startsWith('before(') || trimmed.startsWith('after(')) {
+
+  if (supportedPseudos.includes(prefix)) {
     parsePseudoElementStyle(trimmed, styleDef, isConstContext);
     return;
   }
-  const knownStates = [
-    'hover',
-    'focus',
-    'active',
-    'focus-within',
-    'focus-visible',
-    'target',
-    'disabled',
-  ];
-  for (const st of knownStates) {
-    if (trimmed.startsWith(st + '(')) {
-      parseStateStyle(trimmed, styleDef, isConstContext);
-      return;
-    }
+
+  // 4) เช็ค prefix ว่าตรงกับ case ไหน
+  if (prefix === 'screen') {
+    parseScreenStyle(trimmed, styleDef, isConstContext);
+    return;
   }
 
-  // 4) base style
+  if (prefix === 'container') {
+    parseContainerStyle(trimmed, styleDef, isConstContext);
+    return;
+  }
+
+  // 5) กรณีที่ไม่เข้าเคสใด ๆ => เป็น base style (กรณีเจอ h[calc(...)])
   parseBaseStyle(trimmed, styleDef, isConstContext, isQueryBlock);
 }
