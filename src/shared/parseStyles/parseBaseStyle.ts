@@ -17,6 +17,10 @@ export function parseBaseStyle(
 ) {
   // ตรวจสอบ !important
   const { line: abbrLineNoBang, isImportant } = detectImportantSuffix(abbrLine);
+  if (isConstContext && isImportant) {
+    throw new Error(`[SWD-ERR] !important is not allowed in @const block. Found: "${abbrLine}"`);
+  }
+
   const [styleAbbr, propValue] = separateStyleAndProperties(abbrLineNoBang);
   if (!styleAbbr) {
     return;

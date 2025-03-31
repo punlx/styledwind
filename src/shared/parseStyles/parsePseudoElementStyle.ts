@@ -25,6 +25,9 @@ export function parsePseudoElementStyle(
 
   for (const p of propsInPseudo) {
     const { line: tokenNoBang, isImportant } = detectImportantSuffix(p);
+    if (isConstContext && isImportant) {
+      throw new Error(`[SWD-ERR] !important is not allowed in @const block. Found: "${abbrLine}"`);
+    }
     const [abbr, val] = separateStyleAndProperties(tokenNoBang);
     if (!abbr) continue;
 
