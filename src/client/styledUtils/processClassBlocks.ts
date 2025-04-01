@@ -150,6 +150,11 @@ export function processClassBlocks(
           throw new Error(`[SWD-ERR] @use refers to unknown const "${cName}" inside @query.`);
         }
         const partialDef = constMap.get(cName)!;
+        if (partialDef.hasRuntimeVar) {
+          throw new Error(
+            `[SWD-ERR] @use "${cName}" has $variable, not allowed inside @query block.`
+          );
+        }
         mergeStyleDef(qBlock.styleDef, partialDef);
       }
 

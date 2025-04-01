@@ -9,6 +9,7 @@ export function createEmptyStyleDef(): IStyleDefinition {
     screens: [],
     containers: [],
     pseudos: {},
+    hasRuntimeVar: false,
   };
 }
 

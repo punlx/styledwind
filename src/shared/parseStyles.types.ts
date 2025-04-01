@@ -32,4 +32,5 @@ export interface IStyleDefinition {
    * ฟิลด์ใหม่สำหรับ nested query
    */
   queries?: IQueryBlock[];
+  hasRuntimeVar?: boolean;
 }
