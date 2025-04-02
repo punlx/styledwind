@@ -4,6 +4,17 @@ import { isServer } from '../server/constant';
 import { serverStyleSheet } from '../server/ServerStyleSheetInstance';
 import { separateStyleAndProperties } from '../shared/parseStyles/parseStylesUtils';
 
+/* ----------------------------------------------------------------------------
+   ส่วนประกาศตัวแปร / ฟังก์ชัน theme หลัก
+---------------------------------------------------------------------------- */
+
+/** เก็บ styleDef แบบ global (คล้าย @const) ที่ define ผ่าน theme.define(...) */
+import { IStyleDefinition } from '../shared/parseStyles.types';
+import { parseSingleAbbr } from '../shared/parseStyles/parseSingleAbbr';
+import { createEmptyStyleDef } from '../shared/parseStyles/parseStylesUtils';
+
+export const globalDefineMap: Record<string, Record<string, IStyleDefinition>> = {};
+
 /* --------------------------------------------------------------------------
    เก็บ CSS ส่วน global (palette, keyframe, variable) ไว้ใน <style> (#styledwind-theme)
    หรือฝั่ง SSR ก็เก็บเป็น text
@@ -77,7 +88,7 @@ function generatePaletteCSS(colors: string[][]): string {
 }
 
 /* -----------------------------------------
-   Runtime store สำหรับ keyframe 
+   Runtime store สำหรับ keyframe
 ----------------------------------------- */
 const keyframeRuntimeDict: Record<string, Record<string, { set: (props: any) => void }>> = {};
 
@@ -114,16 +125,12 @@ function parseKeyframeAbbr(
       styleAbbr = styleAbbr.slice(1);
     }
 
-    // จะ map abbr -> CSS prop หรือไม่ก็ตามปกติ (แต่ใน keyframe อาจ parse เอง)
-    // simplified
     if (isVar) {
-      // ถ้าเป็น $xxx -> เป็น cssVar
       const finalVarName = `--${styleAbbr}-${keyframeName}-${blockLabel.replace('%', '')}`;
-      cssText += `${styleAbbr}:var(${finalVarName});`; // สมมติเรายังใช้ชื่อ abbr เป็น prop
+      cssText += `${styleAbbr}:var(${finalVarName});`;
       varMap[styleAbbr] = finalVarName;
       defaultVars[finalVarName] = propVal;
     } else {
-      // สมมติ mapping คร่าว ๆ
       cssText += `${styleAbbr}:${propVal};`;
     }
   }
@@ -213,8 +220,6 @@ function generateVariableCSS(variableMap: Record<string, string>): string {
    parseTypographyDefinition: ของเดิม parseFontDefinition => เปลี่ยนชื่อ
 ---------------------------------------------------------------------------*/
 function parseTypographyDefinition(def: string): Record<string, string> {
-  // เดิมใช้ separateStyleAndProperties => "fs[16px] fw[700]" ...
-  // แล้ว map => { font-size: '16px', font-weight: '700', ... }
   const tokens = def.split(/\s+/).filter(Boolean);
   const result: Record<string, string> = {};
 
@@ -222,17 +227,14 @@ function parseTypographyDefinition(def: string): Record<string, string> {
     const [abbr, rawVal] = separateStyleAndProperties(token);
     if (!abbr) continue;
 
-    // ไม่อนุญาต $variable ใน typography
     if (abbr.startsWith('$')) {
       throw new Error(`[SWD-ERR] $variable is not allowed in theme.typography: "${token}"`);
     }
 
-    // map abbr -> CSS property (เช่น fs -> "font-size", fw -> "font-weight", ฯลฯ)
     const mappedProp = abbrMap[abbr as keyof typeof abbrMap];
     if (!mappedProp) {
       throw new Error(`[SWD-ERR] Unknown font abbr "${abbr}" in theme.font(...) definition.`);
     }
-    // เก็บเป็น key-value ตรง ๆ
     result[mappedProp] = rawVal;
   }
 
@@ -300,5 +302,38 @@ export const theme = {
   variable(variableMap: Record<string, string>) {
     cachedVariableCSS = generateVariableCSS(variableMap);
     updateThemeStyleContent();
+  },
+
+  /**
+   * ฟังก์ชันใหม่: define(...)
+   * - ใช้ประกาศชุด styleDef (คล้าย @const) ในระดับ global
+   * - ห้ามใช้ @query และ !important ข้างใน (เพราะ isConstContext=true)
+   */
+  define(styleMap: Record<string, Record<string, string>>) {
+    for (const mainKey in styleMap) {
+      if (!globalDefineMap[mainKey]) {
+        globalDefineMap[mainKey] = {};
+      }
+      const subObj = styleMap[mainKey];
+      for (const subKey in subObj) {
+        const raw = subObj[subKey];
+        const styleDef = createEmptyStyleDef();
+        const lines = raw
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean);
+        for (const ln of lines) {
+          // เพิ่มพารามิเตอร์ตัวที่ 5 => isDefineContext = true
+          parseSingleAbbr(
+            ln,
+            styleDef,
+            true /* isConstContext */,
+            false /* isQueryBlock */,
+            true /* isDefineContext */
+          );
+        }
+        globalDefineMap[mainKey][subKey] = styleDef;
+      }
+    }
   },
 };
