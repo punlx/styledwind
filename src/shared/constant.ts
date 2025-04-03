@@ -145,7 +145,8 @@ export const abbrMap = {
    ********************************************/
   // เปลี่ยนมาใช้ f => 'font' (แทนที่จะ parse เป็น theme.font)
   f: 'font',
-
+  // ต้องมี typography เพื่อเช็คว่า ty ยังสามารถใช้ได้
+  ty: 'typography',
   fm: 'font-family',
   fs: 'font-size',
   fw: 'font-weight',
