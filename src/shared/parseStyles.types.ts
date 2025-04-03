@@ -1,4 +1,4 @@
-// src/shared/parseStyles/parseStyles.types.ts
+// src/shared/parseStyles.types.ts
 export interface IQueryBlock {
   selector: string;
   styleDef: IStyleDefinition;
