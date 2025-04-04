@@ -16,18 +16,23 @@ export function transformLocalVariables(
     return;
   }
 
+  // ถ้า scopeName==='none' => ใช้ className เฉย ๆ, ไม่ใส่ 'none_'
+  const scopePart = scopeName === 'none' ? className : `${scopeName}_${className}`;
+
   // สร้าง map property
   const localVarProps: Record<string, string> = {};
 
   for (const varName in styleDef.localVars) {
     const rawVal = styleDef.localVars[varName];
-    const finalVarName = `--${varName}-${scopeName}_${className}`;
+    // ตัวแปรสุดท้าย => `--${varName}-${scopePart}`
+    const finalVarName = `--${varName}-${scopePart}`;
     localVarProps[finalVarName] = rawVal;
   }
 
+  // REGEX ไว้ replace LOCALVAR(xxx) => var(--xxx-scopePart)
   const placeholderRegex = /LOCALVAR\(([\w-]+)\)/g;
   const replacer = (match: string, p1: string): string => {
-    const finalVarName = `--${p1}-${scopeName}_${className}`;
+    const finalVarName = `--${p1}-${scopePart}`;
     return `var(${finalVarName})`;
   };
 
@@ -69,6 +74,6 @@ export function transformLocalVariables(
     }
   }
 
-  // เก็บไว้ใน styleDef => buildCssText ไปอ่าน
+  // เก็บ mapping localVar => finalVarName ไว้ใน styleDef._resolvedLocalVars
   (styleDef as any)._resolvedLocalVars = localVarProps;
 }
