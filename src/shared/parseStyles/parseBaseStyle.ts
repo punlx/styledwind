@@ -73,21 +73,24 @@ export function parseBaseStyle(
         `[SWD-ERR] Runtime variable ($var) not allowed inside @query block. Found: "${abbrLine}"`
       );
     }
-
     // parse $var
-    // ตัวอย่าง: $bg => varBase
     const realAbbr = styleAbbr.slice(1); // ตัด '$'
     const expansions = [`${realAbbr}[${propValue}]`];
     for (const ex of expansions) {
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
 
+      // **เพิ่มการเช็คถ้ามี --& => throw**
+      if (val2.includes('--&')) {
+        throw new Error(
+          `[SWD-ERR] $variable is not allowed to reference local var (--&xxx). Found: "${abbrLine}"`
+        );
+      }
+
       // เช็คว่า abbr2 อยู่ใน abbrMap ไหม
       const cssProp = abbrMap[abbr2 as keyof typeof abbrMap];
       if (!cssProp) {
-        // ถ้าไม่เจอ => แสดงว่า $variable นี้ใช้ abbr2 ที่ไม่อยู่ใน abbrMap
-        // โค้ดเดิมจะ throw => หรือจะอนุญาต ? => สมมติเราอนุญาตเฉพาะ abbr ที่อยู่ใน abbrMap
-        throw new Error(`"${abbr2}" not defined in abbrMap for $variable. (abbrLine=${abbrLine})`);
+        throw new Error(`"${abbr2}" not defined in abbrMap. (abbrLine=${abbrLine})`);
       }
       const finalVal = convertCSSVariable(val2);
 
