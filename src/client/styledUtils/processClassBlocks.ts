@@ -18,9 +18,9 @@ export const usedScopeClasses = new Set<string>();
  * processClassBlocks:
  * - วน loop classBlocks (แต่ละ .className { ... })
  * - แยกและ parse @use, จากนั้น merge ลง classStyleDef ก่อน
- * - แล้วค่อย parse บรรทัดปกติ (จะ override ได้)
+ * - แล้วค่อย parse บรรทัดปกติ (override ได้)
  * - แยก parse @query <selector> { ... } -> styleDef.queries
- * - ภายในแต่ละ query block ก็ parse line + @use (merge styleDef) เช่นเดียวกัน
+ * - ภายใน query block ก็ parse line + @use (merge styleDef) เช่นเดียวกัน
  * - เรียก processOneClass -> ได้ displayName = "scopeName_className" หรือ ".className" (ถ้า scope=none)
  */
 export function processClassBlocks(
@@ -34,9 +34,7 @@ export function processClassBlocks(
   for (const block of classBlocks) {
     const clsName = block.className;
 
-    // -----------------------------
-    // 1) กันซ้ำภายในไฟล์ (local)
-    // -----------------------------
+    // 1) กันซ้ำภายในไฟล์
     if (localClasses.has(clsName)) {
       throw new Error(
         `[SWD-ERR] Duplicate class ".${clsName}" in scope "${scopeName}" (same file).`
@@ -44,9 +42,7 @@ export function processClassBlocks(
     }
     localClasses.add(clsName);
 
-    // -----------------------------
-    // 2) กันซ้ำข้ามไฟล์ (global)
-    // -----------------------------
+    // 2) กันซ้ำข้ามไฟล์
     if (scopeName !== 'none') {
       const scopeClassKey = `${scopeName}:${clsName}`;
       if (process.env.NODE_ENV === 'production') {
@@ -58,26 +54,19 @@ export function processClassBlocks(
       }
       usedScopeClasses.add(scopeClassKey);
     }
-    // ถ้า scopeName === 'none' -> ข้ามการเช็คซ้ำ
 
-    // -----------------------------
-    // 3) สร้าง styleDef ของคลาสนี้
-    // -----------------------------
+    // 3) สร้าง styleDef
     const classStyleDef = createEmptyStyleDef();
 
-    // ดึง @query block ออกมาก่อน
+    // extract query blocks
     const { queries, newBody } = extractQueryBlocks(block.body);
-
-    // สร้าง IQueryBlock array
     const realQueryBlocks = queries.map((q) => ({
       selector: q.selector,
       styleDef: createEmptyStyleDef(),
     }));
     classStyleDef.queries = realQueryBlocks;
 
-    // -----------------------------
-    // 4) แบ่งบรรทัดใน body หลัก (หลังตัด @query แล้ว)
-    // -----------------------------
+    // 4) parse body หลัก (split line => parseSingleAbbr)
     const lines = newBody
       .split('\n')
       .map((l) => l.trim())
@@ -88,9 +77,7 @@ export function processClassBlocks(
 
     for (const line of lines) {
       if (line.startsWith('@use ')) {
-        // ถ้าเจอ "@use xxxxx"
         if (usedConstNames.length > 0) {
-          // ตัวอย่างโค้ดนี้ไม่อนุญาตให้มี @use ซ้ำหลายบรรทัดภายใน class
           throw new Error(`[SWD-ERR] Multiple @use lines in class ".${clsName}" are not allowed.`);
         }
         const tokens = line.replace('@use', '').trim().split(/\s+/);
@@ -100,9 +87,7 @@ export function processClassBlocks(
       }
     }
 
-    // -----------------------------------
-    // (A) Merge const ก่อน -> เป็น baseline
-    // -----------------------------------
+    // (A) merge const ก่อน
     if (usedConstNames.length > 0) {
       for (const cName of usedConstNames) {
         if (!constMap.has(cName)) {
@@ -112,20 +97,25 @@ export function processClassBlocks(
         mergeStyleDef(classStyleDef, partialDef);
       }
     }
-
-    // -----------------------------------
-    // (B) ค่อย parse บรรทัดปกติ -> override
-    // -----------------------------------
+    // (B) parse บรรทัดปกติ -> override
     for (const ln of normalLines) {
       parseSingleAbbr(ln, classStyleDef);
     }
 
-    // -----------------------------
-    // 5) parse ภายใน query block
-    // -----------------------------
+    // 5) parse query blocks
     for (let i = 0; i < realQueryBlocks.length; i++) {
       const qBlock = realQueryBlocks[i];
       const qRawBody = queries[i].rawBody;
+
+      // **คัดลอก localVars จาก parent => query styleDef**
+      // เพื่อให้ query block มองเห็น var ที่ parent ประกาศ
+      if (!qBlock.styleDef.localVars) {
+        qBlock.styleDef.localVars = {};
+      }
+      if (classStyleDef.localVars) {
+        // merge เข้าไป
+        Object.assign(qBlock.styleDef.localVars, classStyleDef.localVars);
+      }
 
       const qLines = qRawBody
         .split('\n')
@@ -144,7 +134,7 @@ export function processClassBlocks(
         }
       }
 
-      // (A) merge const ของ query ก่อน (ถ้ามี)
+      // (A) merge const ของ query
       for (const cName of usedConstNamesQ) {
         if (!constMap.has(cName)) {
           throw new Error(`[SWD-ERR] @use refers to unknown const "${cName}" inside @query.`);
@@ -157,24 +147,43 @@ export function processClassBlocks(
         }
         mergeStyleDef(qBlock.styleDef, partialDef);
       }
-
-      // (B) parse บรรทัดปกติใน query block
+      // (B) parse บรรทัดปกติ => isQueryBlock=true
       for (const qLn of normalQueryLines) {
         parseSingleAbbr(qLn, qBlock.styleDef, false, true);
       }
     }
 
-    // -----------------------------
-    // 6) สร้าง CSS => processOneClass
-    // -----------------------------
-    const displayName = processOneClass(clsName, classStyleDef, scopeName);
+    // 6) ตรวจ usedLocalVars ที่ parent
+    if ((classStyleDef as any)._usedLocalVars) {
+      for (const usedVar of (classStyleDef as any)._usedLocalVars) {
+        if (!classStyleDef.localVars || !(usedVar in classStyleDef.localVars)) {
+          throw new Error(
+            `[SWD-ERR] local var "${usedVar}" is used but not declared in ".${clsName}" (scope="${scopeName}").`
+          );
+        }
+      }
+    }
 
-    // เก็บลง map
+    // ตรวจ usedLocalVars ใน query
+    for (let i = 0; i < realQueryBlocks.length; i++) {
+      const qStyleDef = realQueryBlocks[i].styleDef;
+      const sel = queries[i].selector;
+      if ((qStyleDef as any)._usedLocalVars) {
+        for (const usedVar of (qStyleDef as any)._usedLocalVars) {
+          // ตอน parseSingleAbbr, query block ได้ localVars มาจาก parent
+          if (!qStyleDef.localVars || !(usedVar in qStyleDef.localVars)) {
+            throw new Error(
+              `[SWD-ERR] local var "${usedVar}" is used but not declared (query="${sel}", class=".${clsName}").`
+            );
+          }
+        }
+      }
+    }
+
+    // 7) processOneClass => insert CSS
+    const displayName = processOneClass(clsName, classStyleDef, scopeName);
     resultMap[clsName] = displayName;
   }
 
-  // -----------------------------
-  // 7) return {className: "scope_className", ...}
-  // -----------------------------
   return resultMap;
 }

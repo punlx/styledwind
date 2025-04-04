@@ -1,5 +1,4 @@
 // src/shared/parseStyles/parseBaseStyle.ts
-
 import { typographyDict } from '../../client/theme';
 import { abbrMap } from '../constant';
 import { IStyleDefinition } from '../parseStyles.types';
@@ -9,7 +8,6 @@ import {
   detectImportantSuffix,
 } from './parseStylesUtils';
 
-/** เพิ่ม import globalDefineMap & mergeStyleDef */
 import { globalDefineMap } from '../../client/theme';
 import { mergeStyleDef } from '../../client/styledUtils/mergeStyleDef';
 
@@ -39,7 +37,7 @@ export function parseBaseStyle(
     );
   }
 
-  // 3) เช็คกรณี local var (--&xxx)
+  // 3) local var: --&xxx
   if (styleAbbr.startsWith('--&')) {
     if (isConstContext) {
       throw new Error(
@@ -56,7 +54,7 @@ export function parseBaseStyle(
     if (!styleDef.localVars) {
       styleDef.localVars = {};
     }
-    const localVarName = styleAbbr.slice(3); // ตัด "--&"
+    const localVarName = styleAbbr.slice(3); // "--&"
     if (styleDef.localVars[localVarName] != null) {
       throw new Error(`[SWD-ERR] local var "${localVarName}" is already declared in this class.`);
     }
@@ -64,30 +62,26 @@ export function parseBaseStyle(
     return;
   }
 
-  // 4) เช็คกรณี $variable
+  // 4) ถ้าเป็น $variable
   const isVariable = styleAbbr.startsWith('$');
   if (isVariable) {
-    // ถ้าอยู่ใน @query => ห้าม
     if (isQueryBlock) {
       throw new Error(
         `[SWD-ERR] Runtime variable ($var) not allowed inside @query block. Found: "${abbrLine}"`
       );
     }
-    // parse $var
     const realAbbr = styleAbbr.slice(1); // ตัด '$'
     const expansions = [`${realAbbr}[${propValue}]`];
     for (const ex of expansions) {
       const [abbr2, val2] = separateStyleAndProperties(ex);
       if (!abbr2) continue;
 
-      // **เพิ่มการเช็คถ้ามี --& => throw**
       if (val2.includes('--&')) {
         throw new Error(
           `[SWD-ERR] $variable is not allowed to reference local var (--&xxx). Found: "${abbrLine}"`
         );
       }
 
-      // เช็คว่า abbr2 อยู่ใน abbrMap ไหม
       const cssProp = abbrMap[abbr2 as keyof typeof abbrMap];
       if (!cssProp) {
         throw new Error(`"${abbr2}" not defined in abbrMap. (abbrLine=${abbrLine})`);
@@ -104,11 +98,10 @@ export function parseBaseStyle(
     return;
   }
 
-  // 5) ถ้าไม่ใช่ local var และไม่ใช่ $var => เช็ค abbrMap หรือ globalDefineMap
+  // 5) ถ้าไม่ใช่ localVar และไม่ใช่ $var => เช็ค abbrMap / globalDefineMap
   if (!(styleAbbr in abbrMap)) {
-    // ไม่อยู่ใน abbrMap => ลองเช็ค globalDefineMap
+    // ลอง globalDefineMap
     if (styleAbbr in globalDefineMap) {
-      // มีใน globalDefineMap => parse subKey
       const tokens = propValue.split(/\s+/).filter(Boolean);
       if (tokens.length > 1) {
         throw new Error(
@@ -126,13 +119,12 @@ export function parseBaseStyle(
       mergeStyleDef(styleDef, partialDef);
       return;
     }
-    // ไม่อยู่ใน abbrMap และไม่อยู่ใน globalDefineMap => throw
     throw new Error(
       `"${styleAbbr}" not defined in abbrMap or theme.define(...) (abbrLine=${abbrLine})`
     );
   }
 
-  // 6) ถ้าอยู่ใน abbrMap => parse แบบปกติ (เช่น bg[red], w[100px])
+  // 6) ถ้าอยู่ใน abbrMap => parse normal abbr ex. "bg[red]"
   if (styleAbbr === 'ty') {
     const dictEntry = typographyDict.dict[propValue];
     if (!dictEntry) {
@@ -156,13 +148,19 @@ export function parseBaseStyle(
       throw new Error(`"${abbr2}" not defined in abbrMap. (abbrLine=${abbrLine})`);
     }
 
-    const finalVal = convertCSSVariable(val2);
+    let finalVal = convertCSSVariable(val2);
     if (val2.includes('--&')) {
-      // replace --&xxx => LOCALVAR(xxx)
-      const replaced = val2.replace(/--&([\w-]+)/g, (_, varName) => {
+      // ตรงนี้เก็บว่าใช้ localVar อะไร
+      finalVal = val2.replace(/--&([\w-]+)/g, (_, varName) => {
+        // บันทึกว่ามีการ "ใช้" localVar varName
+        if (!(styleDef as any)._usedLocalVars) {
+          (styleDef as any)._usedLocalVars = new Set<string>();
+        }
+        (styleDef as any)._usedLocalVars.add(varName);
+
         return `LOCALVAR(${varName})`;
       });
-      styleDef.base[cssProp] = replaced + (isImportant ? ' !important' : '');
+      styleDef.base[cssProp] = finalVal + (isImportant ? ' !important' : '');
     } else {
       styleDef.base[cssProp] = finalVal + (isImportant ? ' !important' : '');
     }
