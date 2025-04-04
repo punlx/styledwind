@@ -19,7 +19,7 @@ export function parseBaseStyle(
   isConstContext: boolean = false,
   isQueryBlock: boolean = false
 ) {
-  // ตรวจสอบ !important
+  // 1) ตรวจ !important + แยก abbr / prop
   const { line: abbrLineNoBang, isImportant } = detectImportantSuffix(abbrLine);
   if (isConstContext && isImportant) {
     throw new Error(
@@ -32,18 +32,14 @@ export function parseBaseStyle(
     return;
   }
 
-  // ----------------------------------------------------------------
-  // 0) ตรวจกรณีชนกันทั้งใน abbrMap และ globalDefineMap
-  // ----------------------------------------------------------------
-  // เดิมเคยเขียน if (abbrMap[styleAbbr] && globalDefineMap[styleAbbr]) {
-  // แต่ TS จะ error => แก้เป็นใช้ in operator แทน
+  // 2) ถ้า abbr ซ้ำทั้ง abbrMap และ globalDefineMap => error
   if (styleAbbr in abbrMap && styleAbbr in globalDefineMap) {
     throw new Error(
       `[SWD-ERR] "${styleAbbr}" is defined in both abbrMap and theme.define(...) - name collision not allowed.`
     );
   }
 
-  // ----- กรณีเป็น local var (--&xxx) -----
+  // 3) เช็คกรณี local var (--&xxx)
   if (styleAbbr.startsWith('--&')) {
     if (isConstContext) {
       throw new Error(
@@ -57,7 +53,7 @@ export function parseBaseStyle(
       throw new Error(`[SWD-ERR] !important is not allowed with local var "${styleAbbr}".`);
     }
 
-    if (styleDef.localVars == null) {
+    if (!styleDef.localVars) {
       styleDef.localVars = {};
     }
     const localVarName = styleAbbr.slice(3); // ตัด "--&"
@@ -68,25 +64,50 @@ export function parseBaseStyle(
     return;
   }
 
-  // ----- กรณีเป็น $variable -----
-  // ถ้าอยู่ใน isQueryBlock => ไม่อนุญาต
+  // 4) เช็คกรณี $variable
   const isVariable = styleAbbr.startsWith('$');
-  if (isVariable && isQueryBlock) {
-    throw new Error(
-      `[SWD-ERR] Runtime variable ($var) not allowed inside @query block. Found: "${abbrLine}"`
-    );
+  if (isVariable) {
+    // ถ้าอยู่ใน @query => ห้าม
+    if (isQueryBlock) {
+      throw new Error(
+        `[SWD-ERR] Runtime variable ($var) not allowed inside @query block. Found: "${abbrLine}"`
+      );
+    }
+
+    // parse $var
+    // ตัวอย่าง: $bg => varBase
+    const realAbbr = styleAbbr.slice(1); // ตัด '$'
+    const expansions = [`${realAbbr}[${propValue}]`];
+    for (const ex of expansions) {
+      const [abbr2, val2] = separateStyleAndProperties(ex);
+      if (!abbr2) continue;
+
+      // เช็คว่า abbr2 อยู่ใน abbrMap ไหม
+      const cssProp = abbrMap[abbr2 as keyof typeof abbrMap];
+      if (!cssProp) {
+        // ถ้าไม่เจอ => แสดงว่า $variable นี้ใช้ abbr2 ที่ไม่อยู่ใน abbrMap
+        // โค้ดเดิมจะ throw => หรือจะอนุญาต ? => สมมติเราอนุญาตเฉพาะ abbr ที่อยู่ใน abbrMap
+        throw new Error(`"${abbr2}" not defined in abbrMap for $variable. (abbrLine=${abbrLine})`);
+      }
+      const finalVal = convertCSSVariable(val2);
+
+      if (!styleDef.varBase) {
+        styleDef.varBase = {};
+      }
+      styleDef.varBase[realAbbr] = finalVal;
+
+      styleDef.base[cssProp] = `var(--${realAbbr})${isImportant ? ' !important' : ''}`;
+    }
+    return;
   }
 
-  // ----------------------------------------------------------------
-  // 1) ถ้า abbr ไม่อยู่ใน abbrMap => ลองเช็คใน globalDefineMap
-  // ----------------------------------------------------------------
+  // 5) ถ้าไม่ใช่ local var และไม่ใช่ $var => เช็ค abbrMap หรือ globalDefineMap
   if (!(styleAbbr in abbrMap)) {
-    // abbr ไม่อยู่ใน abbrMap
+    // ไม่อยู่ใน abbrMap => ลองเช็ค globalDefineMap
     if (styleAbbr in globalDefineMap) {
       // มีใน globalDefineMap => parse subKey
       const tokens = propValue.split(/\s+/).filter(Boolean);
       if (tokens.length > 1) {
-        // ไม่อนุญาตหลาย subKey
         throw new Error(
           `[SWD-ERR] Multiple subKey not allowed. Found: "${styleAbbr}[${propValue}]"`
         );
@@ -101,19 +122,14 @@ export function parseBaseStyle(
       }
       mergeStyleDef(styleDef, partialDef);
       return;
-    } else {
-      // ไม่อยู่ใน abbrMap และไม่อยู่ใน globalDefineMap => error
-      throw new Error(
-        `"${styleAbbr}" not defined in abbrMap or theme.define(...) (abbrLine=${abbrLine})`
-      );
     }
+    // ไม่อยู่ใน abbrMap และไม่อยู่ใน globalDefineMap => throw
+    throw new Error(
+      `"${styleAbbr}" not defined in abbrMap or theme.define(...) (abbrLine=${abbrLine})`
+    );
   }
 
-  // ----------------------------------------------------------------
-  // 2) ถ้า abbr อยู่ใน abbrMap => ทำ logic แบบเดิม
-  // ----------------------------------------------------------------
-
-  // เดิม: if (styleAbbr === 'ty') => typography
+  // 6) ถ้าอยู่ใน abbrMap => parse แบบปกติ (เช่น bg[red], w[100px])
   if (styleAbbr === 'ty') {
     const dictEntry = typographyDict.dict[propValue];
     if (!dictEntry) {
@@ -127,51 +143,25 @@ export function parseBaseStyle(
     return;
   }
 
-  // check variable
-  if (isVariable) {
-    // สมมติ $bg => varBase
-    const realAbbr = styleAbbr.slice(1); // ตัด '$'
-    const expansions = [`${realAbbr}[${propValue}]`];
-    for (const ex of expansions) {
-      const [abbr2, val2] = separateStyleAndProperties(ex);
-      if (!abbr2) continue;
+  const expansions = [`${styleAbbr}[${propValue}]`];
+  for (const ex of expansions) {
+    const [abbr2, val2] = separateStyleAndProperties(ex);
+    if (!abbr2) continue;
 
-      // ใช้ as เพื่อให้ TS ยอม: abbr2 might be string
-      const cssProp = abbrMap[abbr2 as keyof typeof abbrMap];
-      if (!cssProp) {
-        throw new Error(`"${abbr2}" not defined in abbrMap. (abbrLine=${abbrLine})`);
-      }
-      const finalVal = convertCSSVariable(val2);
-
-      if (!styleDef.varBase) {
-        styleDef.varBase = {};
-      }
-      styleDef.varBase[realAbbr] = finalVal;
-
-      styleDef.base[cssProp] = `var(--${realAbbr})${isImportant ? ' !important' : ''}`;
+    const cssProp = abbrMap[abbr2 as keyof typeof abbrMap];
+    if (!cssProp) {
+      throw new Error(`"${abbr2}" not defined in abbrMap. (abbrLine=${abbrLine})`);
     }
-  } else {
-    // กรณีปกติ (ไม่ใช่ $variable)
-    // เช่น bg[red], w[100px], ...
-    const expansions = [`${styleAbbr}[${propValue}]`];
-    for (const ex of expansions) {
-      const [abbr2, val2] = separateStyleAndProperties(ex);
-      if (!abbr2) continue;
 
-      const cssProp = abbrMap[abbr2 as keyof typeof abbrMap];
-      if (!cssProp) {
-        throw new Error(`"${abbr2}" not defined in abbrMap. (abbrLine=${abbrLine})`);
-      }
-      const finalVal = convertCSSVariable(val2);
-      if (val2.includes('--&')) {
-        // replace --&xxx => LOCALVAR(xxx)
-        const replaced = val2.replace(/--&([\w-]+)/g, (_, varName) => {
-          return `LOCALVAR(${varName})`;
-        });
-        styleDef.base[cssProp] = replaced + (isImportant ? ' !important' : '');
-      } else {
-        styleDef.base[cssProp] = finalVal + (isImportant ? ' !important' : '');
-      }
+    const finalVal = convertCSSVariable(val2);
+    if (val2.includes('--&')) {
+      // replace --&xxx => LOCALVAR(xxx)
+      const replaced = val2.replace(/--&([\w-]+)/g, (_, varName) => {
+        return `LOCALVAR(${varName})`;
+      });
+      styleDef.base[cssProp] = replaced + (isImportant ? ' !important' : '');
+    } else {
+      styleDef.base[cssProp] = finalVal + (isImportant ? ' !important' : '');
     }
   }
 }
